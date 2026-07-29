@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScholarSafe</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div><strong>ScholarSafe</strong><span>Review before fill</span></div>
+      <span class="connected"><i></i>Ready</span>
+    </header>
+    <main>
+      <section id="empty-state" class="empty-state">
+        <div class="shield">✓</div>
+        <p class="eyebrow">HUMAN-IN-THE-LOOP</p>
+        <h1>Prepare this application safely</h1>
+        <p>Analyze ordinary form fields, match verified facts, and review every suggested answer before anything is filled.</p>
+        <button id="analyze" class="primary">Analyze application</button>
+        <p class="promise">ScholarSafe never submits an application.</p>
+      </section>
+
+      <section id="review-state" hidden>
+        <div class="review-head">
+          <p class="eyebrow">APPLICATION REVIEW</p>
+          <h1 id="application-title">Scholarship application</h1>
+          <p id="summary"></p>
+        </div>
+        <div class="progress"><span id="progress-bar"></span></div>
+        <div id="field-list" class="field-list"></div>
+        <div class="sticky-actions">
+          <button id="fill" class="primary">Fill approved fields</button>
+          <button id="final-review" class="secondary">Open final review</button>
+          <p>No submit action is available.</p>
+        </div>
+      </section>
+
+      <section id="error-state" class="error-state" hidden>
+        <h2>We couldn’t analyze this page</h2>
+        <p id="error-message"></p>
+        <button id="retry" class="secondary">Try again</button>
+      </section>
+    </main>
+    <dialog id="final-dialog">
+      <div class="dialog-head"><div class="shield small">✓</div><div><p class="eyebrow">FINAL REVIEW</p><h2>Ready to check on the page</h2></div></div>
+      <div id="final-summary"></div>
+      <p class="dialog-note">Return to the scholarship page, check every answer, and submit it yourself.</p>
+      <button id="close-dialog" class="primary">Return to review</button>
+    </dialog>
+    <template id="field-template">
+      <article class="field-card">
+        <div class="field-top"><span class="state"></span><span class="confidence"></span></div>
+        <label></label>
+        <textarea rows="3"></textarea>
+        <div class="source"></div>
+        <details><summary>Facts used</summary><ul></ul></details>
+        <div class="field-actions"><button class="approve">Approve</button><button class="reject">Reject</button></div>
+      </article>
+    </template>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "ScholarSafe",
+  "description": "Prepare scholarship form answers from verified facts, then fill only what you approve.",
+  "version": "0.1.0",
+  "permissions": ["activeTab", "sidePanel", "storage"],
+  "host_permissions": ["http://localhost:8000/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open ScholarSafe"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["field_extractor.js", "field_filler.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

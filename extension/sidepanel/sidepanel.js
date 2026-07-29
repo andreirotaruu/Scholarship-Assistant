@@ -1,0 +1,134 @@
+const API_BASE = "http://localhost:8000";
+let application = null;
+
+const byId = (id) => document.getElementById(id);
+const emptyState = byId("empty-state");
+const reviewState = byId("review-state");
+const errorState = byId("error-state");
+
+async function activeTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) throw new Error("Open a scholarship application tab first.");
+  return tab;
+}
+
+async function messageTab(message) {
+  const tab = await activeTab();
+  return chrome.tabs.sendMessage(tab.id, message);
+}
+
+function stateFor(field) {
+  if (["sensitive", "manual_only", "ignore"].includes(field.action)) return "manual";
+  if (!field.answer || field.confidence < 0.7) return "missing";
+  if (field.approved) return "approved";
+  return "review";
+}
+
+function render() {
+  byId("application-title").textContent = application.scholarship_name;
+  const approved = application.fields.filter((field) => field.approved).length;
+  byId("summary").textContent = `${approved} approved · ${application.review_count} to review · ${application.missing_count} missing or manual`;
+  byId("progress-bar").style.width = `${application.fields.length ? approved / application.fields.length * 100 : 0}%`;
+  const list = byId("field-list");
+  list.replaceChildren();
+
+  application.fields.filter((field) => field.action !== "ignore").forEach((field) => {
+    const fragment = byId("field-template").content.cloneNode(true);
+    const card = fragment.querySelector(".field-card");
+    const state = stateFor(field);
+    card.dataset.state = state;
+    card.dataset.approved = String(field.approved);
+    const stateLabel = card.querySelector(".state");
+    stateLabel.classList.add(state === "approved" ? "ready" : state);
+    stateLabel.textContent = state === "approved" ? "Approved" : state === "manual" ? "Manual only" : state === "missing" ? "Information needed" : "Review needed";
+    card.querySelector(".confidence").textContent = field.action === "sensitive" ? "Sensitive" : `${Math.round(field.confidence * 100)}%`;
+    card.querySelector("label").textContent = field.label || field.field_id;
+    const textarea = card.querySelector("textarea");
+    textarea.value = field.answer || "";
+    textarea.placeholder = state === "manual" ? "Enter this directly on the scholarship website" : "Add an answer";
+    textarea.disabled = state === "manual";
+    textarea.addEventListener("input", () => {
+      field.answer = textarea.value;
+      if (field.approved) field.approved = false;
+      render();
+    });
+    card.querySelector(".source").textContent = field.source ? `Source: ${field.source}` : field.reason;
+    const details = card.querySelector("details");
+    if (!field.facts_used?.length) details.remove();
+    else {
+      const ul = details.querySelector("ul");
+      field.facts_used.forEach((fact) => {
+        const li = document.createElement("li");
+        li.textContent = fact;
+        ul.append(li);
+      });
+    }
+    const approve = card.querySelector(".approve");
+    const reject = card.querySelector(".reject");
+    if (state === "manual") {
+      card.querySelector(".field-actions").remove();
+    } else {
+      approve.textContent = field.approved ? "✓ Approved" : "Approve";
+      approve.disabled = !field.answer.trim();
+      approve.addEventListener("click", () => {
+        field.approved = !field.approved;
+        render();
+      });
+      reject.addEventListener("click", () => {
+        field.answer = "";
+        field.approved = false;
+        render();
+      });
+    }
+    list.append(fragment);
+  });
+}
+
+async function analyze() {
+  emptyState.hidden = true;
+  reviewState.hidden = true;
+  errorState.hidden = true;
+  try {
+    const page = await messageTab({ type: "SCHOLARSAFE_EXTRACT_FIELDS" });
+    const response = await fetch(`${API_BASE}/api/applications/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scholarship_name: page.title || "Scholarship application",
+        url: page.url,
+        fields: page.fields
+      })
+    });
+    if (!response.ok) throw new Error(`The ScholarSafe service returned ${response.status}.`);
+    application = await response.json();
+    reviewState.hidden = false;
+    render();
+  } catch (error) {
+    errorState.hidden = false;
+    byId("error-message").textContent = error.message.includes("Receiving end")
+      ? "This page cannot be inspected. Try an ordinary scholarship form in a regular browser tab."
+      : `${error.message} Make sure the local ScholarSafe API is running.`;
+  }
+}
+
+byId("analyze").addEventListener("click", analyze);
+byId("retry").addEventListener("click", analyze);
+byId("fill").addEventListener("click", async () => {
+  if (!application) return;
+  const approved = application.fields.filter((field) => field.approved && !["sensitive", "manual_only", "ignore"].includes(field.action));
+  const response = await messageTab({ type: "SCHOLARSAFE_FILL_APPROVED", fields: approved });
+  const filled = response.results.filter((item) => item.status === "filled").length;
+  byId("fill").textContent = `${filled} approved field${filled === 1 ? "" : "s"} filled ✓`;
+});
+byId("final-review").addEventListener("click", () => {
+  const approved = application.fields.filter((field) => field.approved).length;
+  const remaining = application.fields.filter((field) => !field.approved && field.action !== "ignore").length;
+  byId("final-summary").replaceChildren();
+  [["Approved answers", approved], ["Remaining checks", remaining], ["Automatic submission", "Disabled"]].forEach(([label, value]) => {
+    const row = document.createElement("div");
+    row.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+    byId("final-summary").append(row);
+  });
+  byId("final-dialog").showModal();
+});
+byId("close-dialog").addEventListener("click", () => byId("final-dialog").close());

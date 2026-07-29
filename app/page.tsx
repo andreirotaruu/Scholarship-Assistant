@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Section = "review" | "profile" | "experiences" | "applications";
 type FieldState = "approved" | "review" | "missing" | "manual";
@@ -17,6 +17,7 @@ type ReviewField = {
 
 type ProfileField = {
   id: string;
+  path: string;
   label: string;
   value: string;
   source: string;
@@ -41,13 +42,13 @@ const initialReviewFields: ReviewField[] = [
 ];
 
 const initialProfile: ProfileField[] = [
-  { id: "first", label: "First name", value: "Andrei", source: "Student-entered", updated: "Today", verified: true },
-  { id: "last", label: "Last name", value: "Rotaru", source: "Student-entered", updated: "Today", verified: true },
-  { id: "email", label: "Email", value: "example@email.com", source: "Student-entered", updated: "Today", verified: true },
-  { id: "school", label: "School", value: "Marquette University", source: "Enrollment record", updated: "Jul 24, 2026", verified: true },
-  { id: "majors", label: "Majors", value: "Computer Science, Mathematics", source: "Student-entered", updated: "Jul 24, 2026", verified: true },
-  { id: "graduation", label: "Graduation date", value: "May 2028", source: "Enrollment record", updated: "Jul 24, 2026", verified: true },
-  { id: "gpa", label: "GPA", value: "", source: "No source", updated: "Never", verified: false },
+  { id: "first", path: "personal.first_name", label: "First name", value: "Andrei", source: "Student-entered", updated: "Today", verified: true },
+  { id: "last", path: "personal.last_name", label: "Last name", value: "Rotaru", source: "Student-entered", updated: "Today", verified: true },
+  { id: "email", path: "personal.email", label: "Email", value: "example@email.com", source: "Student-entered", updated: "Today", verified: true },
+  { id: "school", path: "education.school", label: "School", value: "Marquette University", source: "Enrollment record", updated: "Jul 24, 2026", verified: true },
+  { id: "majors", path: "education.majors", label: "Majors", value: "Computer Science, Mathematics", source: "Student-entered", updated: "Jul 24, 2026", verified: true },
+  { id: "graduation", path: "education.graduation_date", label: "Graduation date", value: "May 2028", source: "Enrollment record", updated: "Jul 24, 2026", verified: true },
+  { id: "gpa", path: "education.gpa", label: "GPA", value: "", source: "No source", updated: "Never", verified: false },
 ];
 
 const navigation: { id: Section; label: string; count?: number }[] = [
@@ -177,10 +178,53 @@ function ReviewView() {
 
 function ProfileView() {
   const [profile, setProfile] = useState(initialProfile);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "offline">("idle");
   const verifiedCount = profile.filter((field) => field.verified).length;
+  useEffect(() => {
+    let active = true;
+    fetch("http://localhost:8000/api/profile")
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((payload) => {
+        if (!active || !Array.isArray(payload.fields)) return;
+        setProfile(payload.fields.map((field: { path: string; label: string; value: unknown; verified: boolean; source: string; updated_at?: string }) => ({
+          id: field.path.replaceAll(".", "-"),
+          path: field.path,
+          label: field.label,
+          value: Array.isArray(field.value) ? field.value.join(", ") : String(field.value ?? ""),
+          verified: field.verified,
+          source: field.source,
+          updated: field.updated_at ? new Date(field.updated_at).toLocaleDateString() : "Never",
+        })));
+      })
+      .catch(() => setSaveState("offline"));
+    return () => { active = false; };
+  }, []);
+
+  const saveProfile = async () => {
+    setSaveState("saving");
+    try {
+      const response = await fetch("http://localhost:8000/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: profile.map((field) => ({
+            path: field.path,
+            label: field.label,
+            value: field.path === "education.majors" ? field.value.split(",").map((value) => value.trim()).filter(Boolean) : field.value || null,
+            verified: field.verified,
+            source: field.source,
+          })),
+        }),
+      });
+      if (!response.ok) throw new Error("Save failed");
+      setSaveState("saved");
+    } catch {
+      setSaveState("offline");
+    }
+  };
   return (
     <>
-      <header className="page-header"><div><div className="breadcrumb"><span>Profile</span><b>/</b>Verified facts</div><h1>Your verified profile</h1><p>Only facts you verify can be used to prepare applications.</p></div><button className="button primary">Save profile</button></header>
+      <header className="page-header"><div><div className="breadcrumb"><span>Profile</span><b>/</b>Verified facts</div><h1>Your verified profile</h1><p>Only facts you verify can be used to prepare applications.</p></div><button className="button primary" onClick={saveProfile} disabled={saveState === "saving"}>{saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "offline" ? "Save when API is online" : "Save profile"}</button></header>
       <section className="profile-summary"><div className="avatar">AR</div><div><span className="kicker">PROFILE READINESS</span><h2>{verifiedCount} of {profile.length} facts verified</h2><p>Complete and verify your GPA to improve matching confidence.</p></div><div className="mini-progress"><span style={{ width: `${verifiedCount / profile.length * 100}%` }} /></div></section>
       <section className="data-panel">
         <div className="panel-heading"><div><span className="section-icon">01</span><div><h2>Personal & education</h2><p>Core facts used for deterministic autofill.</p></div></div><span className="verified-pill">{verifiedCount} verified</span></div>

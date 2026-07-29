@@ -1,0 +1,1 @@
+"""ScholarSafe FastAPI service."""

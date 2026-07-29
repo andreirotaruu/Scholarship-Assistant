@@ -20,4 +20,49 @@ It never submits an application.
 4. The extension fills only explicitly approved answers.
 5. ScholarSafe never clicks or exposes a submit action.
 
-Setup instructions will be completed alongside the backend and extension.
+## Run locally
+
+The dashboard requires Node.js 22 or newer:
+
+```bash
+npm install
+npm run dev
+```
+
+The API requires Python 3.11 or newer (including Python 3.14):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload
+```
+
+The API creates `backend/scholarsafe.db` on first launch and seeds an editable
+sample profile plus two verified experiences. Override the location with the
+`SCHOLARSAFE_DATABASE` environment variable.
+
+## Load the Chrome extension
+
+1. Open `chrome://extensions`.
+2. Turn on **Developer mode**.
+3. Choose **Load unpacked** and select the `extension/` directory.
+4. Start the local API, then open an ordinary scholarship form.
+5. Select the ScholarSafe extension and choose **Analyze application**.
+
+The MVP supports normal text inputs, textareas, selects, radios, and checkboxes.
+Uploads, signatures, CAPTCHAs, sensitive fields, and custom form controls remain
+manual. It deliberately contains no automatic submission code.
+
+## Verify
+
+```bash
+npm test
+python3 -m pytest backend/tests
+node --check extension/field_extractor.js
+node --check extension/field_filler.js
+node --check extension/sidepanel/sidepanel.js
+```
+
+API documentation is available at `http://localhost:8000/docs` while the
+service is running.

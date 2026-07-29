@@ -40,3 +40,7 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+backend/scholarsafe.db
+.venv/
+__pycache__/
+.pytest_cache/

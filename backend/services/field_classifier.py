@@ -32,7 +32,8 @@ SENSITIVE_TERMS = {
 }
 MANUAL_TERMS = {
     "signature", "electronic signature", "upload", "transcript", "recommendation",
-    "captcha", "recaptcha", "proof of", "attach file",
+    "captcha", "recaptcha", "proof of", "attach file", "final confirmation",
+    "reviewed every answer", "certify", "attest", "terms and conditions",
 }
 ESSAY_TERMS = {
     "describe", "explain", "essay", "why", "tell us", "challenge", "leadership",

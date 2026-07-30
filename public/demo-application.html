@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Horizon STEM Scholarship — Safe Test Application</title>
+    <style>
+      :root {
+        --ink: #17221e;
+        --muted: #68746e;
+        --line: #dce2dd;
+        --paper: #f4f5f0;
+        --card: #ffffff;
+        --navy: #123a32;
+        --lime: #c9ef75;
+        --amber: #f5e4bd;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--paper); color: var(--ink); font-family: Arial, sans-serif; }
+      .test-banner { background: var(--navy); color: white; padding: 10px 20px; text-align: center; font-size: 12px; }
+      .test-banner strong { color: var(--lime); }
+      main { width: min(760px, calc(100% - 28px)); margin: 42px auto 70px; }
+      header { margin-bottom: 26px; }
+      .eyebrow { color: #31745a; font-size: 10px; font-weight: 800; letter-spacing: .15em; }
+      h1 { font: 42px/1.05 Georgia, serif; letter-spacing: -1.4px; margin: 9px 0; }
+      header p { color: var(--muted); line-height: 1.6; }
+      .notice { background: #fff8e9; border: 1px solid #ead5a6; border-radius: 10px; padding: 14px; font-size: 12px; line-height: 1.55; margin: 18px 0; }
+      form { display: grid; gap: 17px; }
+      fieldset { margin: 0; border: 1px solid var(--line); border-radius: 13px; padding: 22px; background: var(--card); }
+      legend { font: 20px Georgia, serif; padding: 0 8px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .field { display: grid; gap: 7px; margin-bottom: 16px; }
+      .field:last-child { margin-bottom: 0; }
+      label, .group-label { font-size: 11px; font-weight: 800; }
+      .required { color: #a24535; }
+      input, select, textarea { width: 100%; border: 1px solid #cfd6d1; border-radius: 8px; background: #fbfcfa; padding: 11px 12px; color: var(--ink); font: inherit; }
+      textarea { min-height: 140px; resize: vertical; line-height: 1.5; }
+      input:focus, select:focus, textarea:focus { outline: 3px solid #e2eee8; border-color: #6d9988; }
+      .hint { color: var(--muted); font-size: 10px; margin: 0; }
+      .choice-row { display: flex; flex-wrap: wrap; gap: 15px; }
+      .choice-row label, .check-row { display: flex; gap: 7px; align-items: center; font-weight: 500; }
+      .choice-row input, .check-row input { width: auto; }
+      .manual { background: #f4f5f3; }
+      .manual-badge { display: inline-block; background: #e2e6e3; color: #5e6963; border-radius: 99px; padding: 4px 8px; font-size: 9px; font-weight: 800; margin-left: 5px; }
+      .review-check { background: white; border: 1px solid var(--line); border-radius: 11px; padding: 16px; }
+      .submit-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+      button { border: 0; border-radius: 8px; padding: 12px 18px; background: var(--navy); color: white; font-weight: 800; cursor: pointer; }
+      button:disabled { opacity: .45; cursor: not-allowed; }
+      #submission-message { display: none; background: #e8f6ec; border: 1px solid #b8d9c2; border-radius: 11px; padding: 18px; color: #286443; }
+      #submission-message.visible { display: block; }
+      @media (max-width: 620px) { .grid { grid-template-columns: 1fr; } .submit-row { align-items: stretch; flex-direction: column; } h1 { font-size: 34px; } }
+    </style>
+  </head>
+  <body>
+    <div class="test-banner"><strong>Safe test form:</strong> no data leaves this project and no real scholarship is submitted.</div>
+    <main>
+      <header>
+        <span class="eyebrow">REPRESENTATIVE MVP TEST</span>
+        <h1>Horizon STEM Scholarship</h1>
+        <p>This application exercises ordinary inputs, selections, an essay, a sensitive question, an upload, and a signature.</p>
+        <div class="notice"><strong>Testing rule:</strong> ScholarSafe may analyze and fill approved fields, but the final submit button must be clicked manually.</div>
+      </header>
+
+      <form id="scholarship-application">
+        <input type="hidden" name="application_token" value="safe-demo-token" />
+
+        <fieldset>
+          <legend>Personal information</legend>
+          <div class="grid">
+            <div class="field">
+              <label for="first_name">First name <span class="required">*</span></label>
+              <input id="first_name" name="first_name" type="text" autocomplete="given-name" required />
+            </div>
+            <div class="field">
+              <label for="last_name">Last name <span class="required">*</span></label>
+              <input id="last_name" name="last_name" type="text" autocomplete="family-name" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="email">Email address <span class="required">*</span></label>
+            <input id="email" name="email" type="email" autocomplete="email" placeholder="student@example.edu" required />
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Education</legend>
+          <div class="field">
+            <label for="university">University or college <span class="required">*</span></label>
+            <input id="university" name="university" type="text" required />
+          </div>
+          <div class="grid">
+            <div class="field">
+              <label for="major">Major <span class="required">*</span></label>
+              <input id="major" name="major" type="text" required />
+            </div>
+            <div class="field">
+              <label for="graduation_date">Expected graduation</label>
+              <input id="graduation_date" name="graduation_date" type="text" placeholder="Month YYYY" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="year_in_school">Current year in school</label>
+            <select id="year_in_school" name="year_in_school">
+              <option value="">Choose one</option>
+              <option>First year</option>
+              <option>Sophomore</option>
+              <option>Junior</option>
+              <option>Senior</option>
+              <option>Graduate student</option>
+            </select>
+          </div>
+          <div class="field" role="group" aria-labelledby="stem-program-label">
+            <span id="stem-program-label" class="group-label">Are you currently enrolled in a STEM program?</span>
+            <div class="choice-row">
+              <label><input type="radio" name="stem_program" value="Yes" /> Yes</label>
+              <label><input type="radio" name="stem_program" value="No" /> No</label>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Experience and goals</legend>
+          <div class="field">
+            <label for="technical_challenge">Describe a technical challenge you overcame. <span class="required">*</span></label>
+            <textarea id="technical_challenge" name="technical_challenge" maxlength="1200" required></textarea>
+            <p class="hint">Maximum 1,200 characters. Review any generated draft carefully.</p>
+          </div>
+          <div class="field">
+            <label for="volunteer_hours">How many volunteer hours have you completed?</label>
+            <input id="volunteer_hours" name="volunteer_hours" type="number" min="0" />
+            <p class="hint">ScholarSafe should request this information if no verified source exists.</p>
+          </div>
+        </fieldset>
+
+        <fieldset class="manual">
+          <legend>Manual information</legend>
+          <div class="field">
+            <label for="household_income">Annual household income <span class="manual-badge">SENSITIVE</span></label>
+            <input id="household_income" name="household_income" type="number" min="0" />
+          </div>
+          <div class="field">
+            <label for="transcript">Upload transcript <span class="manual-badge">MANUAL</span></label>
+            <input id="transcript" name="transcript" type="file" accept=".pdf" />
+          </div>
+          <div class="field">
+            <label for="electronic_signature">Electronic signature <span class="manual-badge">MANUAL</span></label>
+            <input id="electronic_signature" name="electronic_signature" type="text" />
+          </div>
+        </fieldset>
+
+        <div class="review-check">
+          <label class="check-row"><input id="final_confirmation" type="checkbox" /> I reviewed every answer and want to submit this safe test application myself.</label>
+        </div>
+        <div class="submit-row">
+          <p class="hint">ScholarSafe must never check the confirmation box or activate this button.</p>
+          <button id="submit_application" type="submit" disabled>Submit test application</button>
+        </div>
+      </form>
+      <div id="submission-message" role="status"><strong>Safe test submitted manually.</strong> No network request was made.</div>
+    </main>
+    <script>
+      const confirmation = document.getElementById("final_confirmation");
+      const submitButton = document.getElementById("submit_application");
+      const form = document.getElementById("scholarship-application");
+      confirmation.addEventListener("change", () => {
+        submitButton.disabled = !confirmation.checked;
+      });
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        document.getElementById("submission-message").classList.add("visible");
+      });
+    </script>
+  </body>
+</html>

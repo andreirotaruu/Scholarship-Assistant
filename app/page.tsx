@@ -144,7 +144,7 @@ function ReviewView() {
       <header className="page-header">
         <div><div className="breadcrumb"><span>Applications</span><b>/</b>Horizon STEM Scholarship</div><h1>Review every answer</h1><p>Nothing is placed on the application until you approve it.</p></div>
         <div className="header-actions">
-          <button className="button ghost">Open scholarship ↗</button>
+          <a className="button ghost" href="/demo-application.html" target="_blank" rel="noreferrer">Open safe test form ↗</a>
           <button className="button primary" onClick={() => setFilled(true)} disabled={approved === 0}>{filled ? "Approved fields filled ✓" : `Fill approved fields · ${approved}`}</button>
         </div>
       </header>
@@ -267,7 +267,7 @@ function ExperiencesView() {
 function ApplicationsView({ onReview }: { onReview: () => void }) {
   return (
     <>
-      <header className="page-header"><div><div className="breadcrumb"><span>Workspace</span><b>/</b>Applications</div><h1>Your applications</h1><p>Track prepared answers, missing information, and deadlines.</p></div><button className="button primary">Analyze new application</button></header>
+      <header className="page-header"><div><div className="breadcrumb"><span>Workspace</span><b>/</b>Applications</div><h1>Your applications</h1><p>Track prepared answers, missing information, and deadlines.</p></div><a className="button primary" href="/demo-application.html" target="_blank" rel="noreferrer">Open safe test application</a></header>
       <section className="application-table">
         <div className="table-head"><span>Scholarship</span><span>Deadline</span><span>Progress</span><span>Status</span><span /></div>
         <div className="table-row">

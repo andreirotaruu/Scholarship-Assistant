@@ -66,3 +66,21 @@ node --check extension/sidepanel/sidepanel.js
 
 API documentation is available at `http://localhost:8000/docs` while the
 service is running.
+
+## Prove the complete MVP flow
+
+Open `http://localhost:3000/demo-application.html` after starting the dashboard.
+This safe representative application includes profile fields, a select, a radio
+group, an essay, missing information, a sensitive question, an upload, a
+signature, a final confirmation, and a submit button.
+
+The automated proof runs the real extension extractor and filler against that
+form, sends the extracted fields through FastAPI, persists explicit approvals,
+and asserts that the final confirmation and submit controls remain untouched:
+
+```bash
+npm run prove:flow
+```
+
+The test never submits the form. A person can check the final confirmation and
+submit the local fixture manually after reviewing the filled values.

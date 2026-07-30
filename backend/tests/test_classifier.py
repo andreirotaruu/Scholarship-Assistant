@@ -28,3 +28,7 @@ def test_essay_is_drafted_for_review() -> None:
 
 def test_submit_controls_are_ignored() -> None:
     assert classify(field("Submit", "submit")).action == FieldAction.IGNORE
+
+
+def test_final_confirmation_is_manual_only() -> None:
+    assert classify(field("I reviewed every answer and want to submit", "checkbox")).action == FieldAction.MANUAL_ONLY

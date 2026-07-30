@@ -17,6 +17,19 @@
   }
 
   function labelFor(element) {
+    const group = element.closest("[role='group'], fieldset");
+    const groupLabelledBy = group?.getAttribute("aria-labelledby");
+    if (element.type === "radio" && groupLabelledBy) {
+      const groupText = groupLabelledBy.split(/\s+/)
+        .map((id) => document.getElementById(id)?.innerText.trim())
+        .filter(Boolean)
+        .join(" ");
+      if (groupText) return groupText;
+    }
+    if (element.type === "radio") {
+      const legend = group?.querySelector("legend");
+      if (legend?.textContent?.trim()) return legend.textContent.trim();
+    }
     if (element.labels?.length) {
       return Array.from(element.labels).map((label) => label.innerText.trim()).filter(Boolean).join(" ");
     }
@@ -38,7 +51,12 @@
     }
     if (element.type === "radio" && element.name) {
       return Array.from(document.querySelectorAll(`input[type="radio"][name="${CSS.escape(element.name)}"]`))
-        .map((radio) => labelFor(radio))
+        .map((radio) => {
+          const ownLabel = radio.labels?.length
+            ? Array.from(radio.labels).map((label) => label.innerText.trim()).filter(Boolean).join(" ")
+            : "";
+          return ownLabel || radio.value;
+        })
         .filter(Boolean);
     }
     return [];
@@ -52,7 +70,14 @@
 
   ScholarSafe.extractFields = function extractFields() {
     const controls = Array.from(document.querySelectorAll("input, textarea, select, button"));
-    return controls.filter(visible).map((element, index) => ({
+    const seenRadioGroups = new Set();
+    return controls.filter((element) => {
+      if (!visible(element)) return false;
+      if (element.type !== "radio" || !element.name) return true;
+      if (seenRadioGroups.has(element.name)) return false;
+      seenRadioGroups.add(element.name);
+      return true;
+    }).map((element, index) => ({
       field_id: element.id || element.name || `field_${index}`,
       label: labelFor(element),
       type: element instanceof HTMLTextAreaElement ? "textarea" : element instanceof HTMLSelectElement ? "select" : element.type || element.tagName.toLowerCase(),

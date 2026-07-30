@@ -17,6 +17,18 @@ async function messageTab(message) {
   return chrome.tabs.sendMessage(tab.id, message);
 }
 
+async function persistApproval(field, approved) {
+  const response = await fetch(
+    `${API_BASE}/api/applications/${application.application_id}/fields/${encodeURIComponent(field.field_id)}/approval`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answer: field.answer, approved })
+    }
+  );
+  if (!response.ok) throw new Error(`Approval could not be saved (${response.status}).`);
+}
+
 function stateFor(field) {
   if (["sensitive", "manual_only", "ignore"].includes(field.action)) return "manual";
   if (!field.answer || field.confidence < 0.7) return "missing";
@@ -70,14 +82,31 @@ function render() {
     } else {
       approve.textContent = field.approved ? "✓ Approved" : "Approve";
       approve.disabled = !field.answer.trim();
-      approve.addEventListener("click", () => {
-        field.approved = !field.approved;
-        render();
+      approve.addEventListener("click", async () => {
+        const nextApproved = !field.approved;
+        approve.disabled = true;
+        try {
+          await persistApproval(field, nextApproved);
+          field.approved = nextApproved;
+          render();
+        } catch (error) {
+          approve.disabled = false;
+          card.querySelector(".source").textContent = error.message;
+        }
       });
-      reject.addEventListener("click", () => {
+      reject.addEventListener("click", async () => {
+        reject.disabled = true;
+        const previousAnswer = field.answer;
         field.answer = "";
-        field.approved = false;
-        render();
+        try {
+          await persistApproval(field, false);
+          field.approved = false;
+          render();
+        } catch (error) {
+          field.answer = previousAnswer;
+          reject.disabled = false;
+          card.querySelector(".source").textContent = error.message;
+        }
       });
     }
     list.append(fragment);

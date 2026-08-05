@@ -24,7 +24,8 @@
       return true;
     }
     if (element.type === "radio") {
-      const radios = document.querySelectorAll(`input[type="radio"][name="${CSS.escape(element.name)}"]`);
+      const root = element.closest("form, [role='form']") || document;
+      const radios = root.querySelectorAll(`input[type="radio"][name="${CSS.escape(element.name)}"]`);
       const match = Array.from(radios).find((radio) => {
         const label = radio.labels?.[0]?.innerText || radio.value;
         return label.trim().toLowerCase() === normalized;

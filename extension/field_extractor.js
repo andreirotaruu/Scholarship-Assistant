@@ -7,10 +7,19 @@
   }
 
   function selectorFor(element, index) {
-    if (element.id) return `#${cssEscape(element.id)}`;
+    const root = element.closest("form, [role='form']");
+    const rootSelector = root?.id && document.querySelectorAll(`#${cssEscape(root.id)}`).length === 1
+      ? `#${cssEscape(root.id)}`
+      : null;
+    if (element.id) {
+      const idSelector = `#${cssEscape(element.id)}`;
+      if (document.querySelectorAll(idSelector).length === 1) return idSelector;
+      if (rootSelector && root.querySelectorAll(idSelector).length === 1) return `${rootSelector} ${idSelector}`;
+    }
     if (element.name) {
-      const selector = `${element.tagName.toLowerCase()}[name="${CSS.escape(element.name)}"]`;
-      if (document.querySelectorAll(selector).length === 1) return selector;
+      const selector = `${element.tagName.toLowerCase()}[name="${cssEscape(element.name)}"]`;
+      const searchRoot = root || document;
+      if (searchRoot.querySelectorAll(selector).length === 1) return rootSelector ? `${rootSelector} ${selector}` : selector;
     }
     element.dataset.scholarSafeField = String(index);
     return `[data-scholar-safe-field="${index}"]`;
@@ -31,7 +40,12 @@
       if (legend?.textContent?.trim()) return legend.textContent.trim();
     }
     if (element.labels?.length) {
-      return Array.from(element.labels).map((label) => label.innerText.trim()).filter(Boolean).join(" ");
+      const form = element.closest("form");
+      const labels = Array.from(element.labels)
+        .filter((label) => !form || label.closest("form") === form)
+        .map((label) => label.innerText.trim())
+        .filter(Boolean);
+      if (labels.length) return labels.join(" ");
     }
     const ariaLabel = element.getAttribute("aria-label");
     if (ariaLabel) return ariaLabel.trim();
@@ -40,7 +54,7 @@
       const text = labelledBy.split(/\s+/).map((id) => document.getElementById(id)?.innerText.trim()).filter(Boolean).join(" ");
       if (text) return text;
     }
-    const container = element.closest("fieldset, .form-group, .field, [role='group']");
+    const container = element.closest("fieldset, .form-group, .field, .upload-group, [role='group']");
     const nearby = container?.querySelector("legend, label, .label, [data-label]");
     return nearby?.textContent?.trim() || element.placeholder || element.name || element.id || "";
   }
@@ -50,7 +64,8 @@
       return Array.from(element.options).map((option) => option.text.trim()).filter(Boolean);
     }
     if (element.type === "radio" && element.name) {
-      return Array.from(document.querySelectorAll(`input[type="radio"][name="${CSS.escape(element.name)}"]`))
+      const root = element.closest("form, [role='form']") || document;
+      return Array.from(root.querySelectorAll(`input[type="radio"][name="${cssEscape(element.name)}"]`))
         .map((radio) => {
           const ownLabel = radio.labels?.length
             ? Array.from(radio.labels).map((label) => label.innerText.trim()).filter(Boolean).join(" ")
@@ -64,12 +79,44 @@
 
   function visible(element) {
     if (element.type === "hidden") return false;
-    const style = getComputedStyle(element);
-    return style.display !== "none" && style.visibility !== "hidden";
+    let current = element;
+    while (current && current !== document.documentElement) {
+      if (current.hidden || current.getAttribute?.("aria-hidden") === "true") return false;
+      const style = getComputedStyle(current);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      current = current.parentElement;
+    }
+    return true;
+  }
+
+  function scoreForm(form) {
+    const controls = Array.from(form.querySelectorAll("input, textarea, select, button"));
+    if (!controls.length) return Number.NEGATIVE_INFINITY;
+    const identity = [
+      form.id,
+      form.className,
+      form.getAttribute("name"),
+      form.getAttribute("action"),
+      form.getAttribute("aria-label"),
+      (form.innerText || "").slice(0, 600),
+    ].filter(Boolean).join(" ").toLowerCase();
+    const positive = /(scholar|application|grant|award|financial aid)/.test(identity) ? 30 : 0;
+    const negative = /(sign[ -]?in|log[ -]?in|register|subscribe|newsletter|search|contact|donat|cart)/.test(identity) ? 35 : 0;
+    const required = controls.filter((control) => control.required || control.getAttribute("aria-required") === "true").length;
+    const evidenceControls = controls.filter((control) => control.type === "file" || control instanceof HTMLTextAreaElement).length;
+    return controls.length + required * 2 + evidenceControls * 4 + positive - negative;
+  }
+
+  function applicationRoot() {
+    const candidates = Array.from(document.querySelectorAll("form, [role='form']"));
+    const ranked = candidates.map((form) => ({ form, score: scoreForm(form) })).sort((a, b) => b.score - a.score);
+    return ranked[0]?.score >= 12 ? ranked[0].form : null;
   }
 
   ScholarSafe.extractFields = function extractFields() {
-    const controls = Array.from(document.querySelectorAll("input, textarea, select, button"));
+    const root = applicationRoot();
+    if (!root) return [];
+    const controls = Array.from(root.querySelectorAll("input, textarea, select, button"));
     const seenRadioGroups = new Set();
     return controls.filter((element) => {
       if (!visible(element)) return false;

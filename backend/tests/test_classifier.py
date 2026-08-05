@@ -32,3 +32,19 @@ def test_submit_controls_are_ignored() -> None:
 
 def test_final_confirmation_is_manual_only() -> None:
     assert classify(field("I reviewed every answer and want to submit", "checkbox")).action == FieldAction.MANUAL_ONLY
+
+
+def test_real_form_profile_labels_map_deterministically() -> None:
+    mappings = {
+        "School attending *": "education.school",
+        "Field of study *": "education.majors",
+        "Year in school *": "education.year_in_school",
+        "Street address *": "personal.address.street",
+        "State / Province *": "personal.address.state",
+        "Postal code *": "personal.address.postal_code",
+        "Country *": "personal.address.country",
+    }
+    for label, expected_path in mappings.items():
+        result = classify(ExtractedField(field_id=label, label=label))
+        assert result.action == FieldAction.PROFILE_AUTOFILL
+        assert result.profile_path == expected_path

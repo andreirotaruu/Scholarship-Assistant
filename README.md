@@ -342,6 +342,22 @@ This test:
 The current proof extracts 15 fields, approves and fills 9, leaves 5 manual or
 missing, ignores the submit control, and reports `submission_triggered: false`.
 
+### Real-site compatibility fixture
+
+The extractor also has a regression fixture derived from a read-only inspection
+of the public 2026 Calvin L. Carrithers Aviation Scholarship application. It
+covers patterns found on that live page without copying or submitting applicant
+data:
+
+- Application fields revealed only after an eligibility or terms step
+- Multiple unrelated forms on the same page
+- Duplicate element IDs across application and account forms
+- Cross-form label collisions
+- Required and optional document uploads
+
+ScholarSafe selects the likely application form, ignores hidden and unrelated
+controls, scopes selectors to that form, and keeps uploads and submission manual.
+
 ## Tests
 
 Run the complete JavaScript and site suite:
@@ -400,12 +416,14 @@ node --check extension/options/options.js
 - The essay generator is deterministic and does not yet use an LLM.
 - The extension is unpacked and has not been packaged for Chrome Web Store
   distribution.
-- The controlled fixture is proven; a selected real scholarship website still
-  needs a supervised compatibility pass.
+- A live scholarship form has been inspected read-only and converted into a
+  regression fixture; an end-to-end pass in a student's Chrome session still
+  requires that student to review the fields and provide any application data.
 
 ## Recommended next milestones
 
-1. Repeat the proven workflow against one selected real scholarship site.
+1. Load the updated unpacked extension in Chrome and repeat the approved-only
+   workflow with a consenting student on the inspected scholarship form.
 2. Deploy FastAPI with a production database.
 3. Add authentication, user ownership, and extension API authorization.
 4. Replace the hosted dashboard's local-only API dependency with an authenticated

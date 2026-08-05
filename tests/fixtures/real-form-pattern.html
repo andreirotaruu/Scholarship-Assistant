@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <form id="scholarship-form" action="/scholarships/submit">
+      <div class="form-group"><label for="fname">First name *</label><input id="fname" name="first_name" required /></div>
+      <div class="form-group"><label for="lname">Last name *</label><input id="lname" name="last_name" required /></div>
+      <div class="form-group"><label for="school">School attending *</label><input id="school" name="school" required /></div>
+      <div class="form-group"><label for="year">Year in school *</label><select id="year" name="year_in_school" required><option>Select year</option><option>Junior</option></select></div>
+      <div class="form-group"><label for="field">Field of study *</label><input id="field" name="field_of_study" required /></div>
+      <div class="form-group"><label for="address">Street address *</label><input id="address" name="address" required /></div>
+      <div class="form-group"><label for="email">Email address *</label><input id="email" name="email" type="email" required /></div>
+      <div class="upload-group"><label>Essay <strong>Required</strong></label><input name="essay" type="file" required /></div>
+      <div class="upload-group"><label>Letter of recommendation <strong>Optional</strong></label><input name="recommendation" type="file" /></div>
+      <button type="submit">Submit application</button>
+    </form>
+
+    <form id="newsletter" action="/subscribe">
+      <label for="email">Newsletter email</label><input id="email" name="email" type="email" />
+      <label><input type="checkbox" name="topics" /> Aviation news</label>
+      <button type="submit">Subscribe</button>
+    </form>
+
+    <form id="login" style="display: none">
+      <label for="username">Username</label><input id="username" />
+      <button type="submit">Sign in</button>
+    </form>
+  </body>
+</html>

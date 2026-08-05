@@ -135,6 +135,9 @@ async function analyze() {
   try {
     apiBase = await loadApiBase();
     const page = await messageTab({ type: "SCHOLARSAFE_EXTRACT_FIELDS" });
+    if (!page.fields?.length) {
+      throw new Error("No visible scholarship application fields were found. Complete any eligibility or terms step on the page, then try again.");
+    }
     const response = await fetch(`${apiBase}/api/applications/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

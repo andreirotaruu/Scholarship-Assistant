@@ -20,6 +20,21 @@ async function createFixture() {
   return window;
 }
 
+async function createRealPatternFixture() {
+  const [html, extractor, filler] = await Promise.all([
+    readFile(new URL("tests/fixtures/real-form-pattern.html", projectRoot), "utf8"),
+    readFile(new URL("extension/field_extractor.js", projectRoot), "utf8"),
+    readFile(new URL("extension/field_filler.js", projectRoot), "utf8"),
+  ]);
+  const window = new Window({ url: "https://scholarship.example/apply" });
+  window.document.write(html);
+  window.CSS ??= {};
+  window.CSS.escape ??= (value) => String(value).replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character}`);
+  window.eval(extractor);
+  window.eval(filler);
+  return window;
+}
+
 test("extracts the representative scholarship form without duplicate radio groups", async () => {
   const window = await createFixture();
   const fields = window.ScholarSafe.extractFields();
@@ -96,4 +111,45 @@ test("refuses direct attempts to fill submit, upload, and password controls", as
   const results = window.ScholarSafe.fillApprovedFields(blocked);
   assert.ok(results.every((result) => result.status === "manual_only"));
   assert.equal(window.document.getElementById("submit_application").disabled, true);
+});
+
+test("scopes extraction to the real scholarship form pattern", async () => {
+  const window = await createRealPatternFixture();
+  const fields = window.ScholarSafe.extractFields();
+  const byName = new Map(fields.map((field) => [field.field_id, field]));
+
+  assert.equal(fields.length, 10);
+  assert.equal(fields.some((field) => /newsletter|subscribe|username/i.test(`${field.field_id} ${field.label}`)), false);
+  assert.equal(byName.get("email").label.toLowerCase(), "email address *");
+  assert.equal(byName.get("email").selector, "#scholarship-form #email");
+  assert.match(byName.get("essay").label.toLowerCase(), /essay/);
+  assert.equal(byName.get("essay").type, "file");
+});
+
+test("does not extract controls hidden by an eligibility gate", async () => {
+  const window = await createRealPatternFixture();
+  window.document.getElementById("scholarship-form").style.display = "none";
+  assert.deepEqual(Array.from(window.ScholarSafe.extractFields()), []);
+});
+
+test("fills only the scoped application field on a page with duplicate IDs", async () => {
+  const window = await createRealPatternFixture();
+  const scholarshipForm = window.document.getElementById("scholarship-form");
+  let submitEvents = 0;
+  scholarshipForm.addEventListener("submit", () => { submitEvents += 1; });
+  const fields = window.ScholarSafe.extractFields();
+  const email = fields.find((field) => field.field_id === "email");
+  const upload = fields.find((field) => field.field_id === "essay");
+  const submit = fields.find((field) => field.type === "submit");
+
+  const results = window.ScholarSafe.fillApprovedFields([
+    { ...email, answer: "reviewed@example.edu", approved: true },
+    { ...upload, answer: "essay.pdf", approved: true },
+    { ...submit, answer: "submit", approved: true },
+  ]);
+
+  assert.equal(scholarshipForm.querySelector("#email").value, "reviewed@example.edu");
+  assert.equal(window.document.querySelector("#newsletter #email").value, "");
+  assert.deepEqual(Array.from(results, (result) => result.status), ["filled", "manual_only", "manual_only"]);
+  assert.equal(submitEvents, 0);
 });

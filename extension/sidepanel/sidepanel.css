@@ -13,6 +13,7 @@ header strong { font: 17px Georgia, serif; } header div span { color: #9eb8ae; f
 .brand-mark span { width: 3px; background: var(--navy-dark); border-radius: 2px; }
 .brand-mark span:nth-child(1) { height: 7px; } .brand-mark span:nth-child(2) { height: 15px; } .brand-mark span:nth-child(3) { height: 11px; }
 .connected { font-size: 9px; color: #b7c9c2; }.connected i { display: inline-block; width: 6px; height: 6px; background: #6eca8e; border-radius: 50%; margin-right: 5px; }
+.settings { background: transparent; color: #b7c9c2; padding: 5px; font-size: 14px; }
 main { padding: 20px 16px 110px; }
 .empty-state { text-align: center; padding: 55px 10px; }
 .shield { margin: 0 auto 19px; width: 48px; height: 53px; display: grid; place-items: center; background: var(--lime); color: var(--navy-dark); font-size: 21px; font-weight: 900; clip-path: polygon(50% 0,94% 15%,88% 70%,50% 100%,12% 70%,6% 15%); }

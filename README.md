@@ -78,6 +78,10 @@ The extension in `extension/` contains three main parts:
   status, character limits, and stable selectors.
 - `sidepanel/` sends the extracted form to FastAPI and presents every answer for
   editing, rejection, or approval.
+- `settings.js` and `options/` let the student connect to a local or hosted
+  FastAPI address. Chrome asks for access before a new server is used.
+- `session_store.js` restores the active tab's review after the side panel is
+  closed and reopened during the same browser session.
 - `field_filler.js` writes only approved values and dispatches bubbling
   `input`, `change`, and `blur` events so modern forms recognize the changes.
 
@@ -207,6 +211,7 @@ Scholarship-Assistant/
 ├── db/                  # Hosted D1/Drizzle schema
 ├── drizzle/             # Generated D1 migrations
 ├── extension/
+│   ├── options/         # Configurable FastAPI connection
 │   └── sidepanel/       # Chrome review interface
 ├── public/
 │   └── demo-application.html
@@ -273,6 +278,15 @@ Open the exact local URL printed by the development server. It is usually
 6. Open a normal HTTP or HTTPS scholarship form.
 7. Select the ScholarSafe toolbar icon.
 8. Choose **Analyze application**.
+
+The extension starts with `http://localhost:8000`. To use another FastAPI
+deployment, select the gear in the side-panel header, enter its service address,
+and approve Chrome's one-time access request for that server.
+
+Each scholarship tab has its own in-browser review session. Closing and
+reopening the side panel on the same page restores edited answers and approval
+state. The authoritative approvals are also persisted to FastAPI as they are
+made.
 
 Chrome does not run content scripts on protected pages such as
 `chrome://extensions`, the Chrome Web Store, or some browser-owned new-tab
@@ -355,6 +369,7 @@ Check extension syntax directly:
 node --check extension/field_extractor.js
 node --check extension/field_filler.js
 node --check extension/sidepanel/sidepanel.js
+node --check extension/options/options.js
 ```
 
 ## API overview
@@ -366,6 +381,7 @@ node --check extension/sidepanel/sidepanel.js
 | `PUT` | `/api/profile` | Save profile fields and verification metadata |
 | `GET` | `/api/experiences` | List experiences |
 | `POST` | `/api/experiences` | Add an experience |
+| `PUT` | `/api/experiences/{id}` | Update or explicitly verify an experience |
 | `POST` | `/api/draft` | Draft from verified experiences |
 | `POST` | `/api/applications/analyze` | Classify extracted fields and create suggestions |
 | `PATCH` | `/api/applications/{id}/fields/{field_id}/approval` | Persist an approval or rejection |
@@ -377,8 +393,9 @@ node --check extension/sidepanel/sidepanel.js
 - Authentication and per-user authorization are not implemented.
 - The deployed dashboard and local SQLite backend are separate persistence
   environments.
-- The extension's API URL is currently fixed to `http://localhost:8000`.
-- Side-panel state does not yet survive a browser restart.
+- Side-panel review state survives closing and reopening within the same browser
+  session, but does not yet restore after a full browser restart or across
+  multiple application pages.
 - Custom React components and multi-page applications need further work.
 - The essay generator is deterministic and does not yet use an LLM.
 - The extension is unpacked and has not been packaged for Chrome Web Store
@@ -391,8 +408,9 @@ node --check extension/sidepanel/sidepanel.js
 1. Repeat the proven workflow against one selected real scholarship site.
 2. Deploy FastAPI with a production database.
 3. Add authentication, user ownership, and extension API authorization.
-4. Make dashboard applications and experiences fully backend-driven.
-5. Persist side-panel sessions and multi-page progress.
+4. Replace the hosted dashboard's local-only API dependency with an authenticated
+   production API.
+5. Persist encrypted multi-page extension progress across browser restarts.
 6. Add an evidence-constrained LLM drafting adapter with structured output.
 7. Harden custom-control support and package the extension.
 

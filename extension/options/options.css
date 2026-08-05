@@ -1,0 +1,14 @@
+:root { --ink: #18231f; --muted: #68746e; --line: #dfe4df; --navy: #173c35; --green: #2d7c55; --paper: #f7f8f4; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.5 Arial, sans-serif; }
+main { width: min(100% - 32px, 620px); margin: 8vh auto; }
+.eyebrow { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .14em; }
+h1 { margin: 4px 0 8px; font: 38px/1.05 Georgia, serif; }
+main > p:not(.eyebrow), .hint, section p { color: var(--muted); }
+form, section { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 22px; margin-top: 24px; }
+label { display: block; font-weight: 800; margin-bottom: 8px; }
+input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: inherit; }
+.hint { font-size: 11px; }
+button { border: 0; border-radius: 8px; background: var(--navy); color: white; padding: 11px 15px; font-weight: 800; cursor: pointer; }
+#status { min-height: 20px; color: var(--green); font-weight: 700; }
+section p { margin-bottom: 0; }

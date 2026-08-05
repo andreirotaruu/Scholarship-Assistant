@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScholarSafe settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">SCHOLARSAFE SETTINGS</p>
+      <h1>Connect the extension</h1>
+      <p>Enter the address of the FastAPI service that stores your verified profile and application reviews.</p>
+      <form id="settings-form">
+        <label for="api-base">FastAPI service address</label>
+        <input id="api-base" name="api-base" type="url" required placeholder="http://localhost:8000" />
+        <p class="hint">For local development, keep the default address. ScholarSafe will ask before accessing a different server.</p>
+        <button type="submit">Save connection</button>
+        <p id="status" role="status"></p>
+      </form>
+      <section><strong>Safety remains unchanged</strong><p>Changing the service address does not enable automatic submission. Only explicitly approved fields can be filled.</p></section>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

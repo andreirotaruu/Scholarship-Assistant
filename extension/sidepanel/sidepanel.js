@@ -1,4 +1,7 @@
-const API_BASE = "http://localhost:8000";
+import { loadApiBase } from "../settings.js";
+import { loadReviewSession, saveReviewSession } from "../session_store.js";
+
+let apiBase = "http://localhost:8000";
 let application = null;
 
 const byId = (id) => document.getElementById(id);
@@ -19,7 +22,7 @@ async function messageTab(message) {
 
 async function persistApproval(field, approved) {
   const response = await fetch(
-    `${API_BASE}/api/applications/${application.application_id}/fields/${encodeURIComponent(field.field_id)}/approval`,
+    `${apiBase}/api/applications/${application.application_id}/fields/${encodeURIComponent(field.field_id)}/approval`,
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -27,6 +30,11 @@ async function persistApproval(field, approved) {
     }
   );
   if (!response.ok) throw new Error(`Approval could not be saved (${response.status}).`);
+}
+
+async function persistSession() {
+  if (!application) return;
+  await saveReviewSession(chrome.storage.session, await activeTab(), application);
 }
 
 function stateFor(field) {
@@ -39,7 +47,9 @@ function stateFor(field) {
 function render() {
   byId("application-title").textContent = application.scholarship_name;
   const approved = application.fields.filter((field) => field.approved).length;
-  byId("summary").textContent = `${approved} approved · ${application.review_count} to review · ${application.missing_count} missing or manual`;
+  const review = application.fields.filter((field) => stateFor(field) === "review").length;
+  const missing = application.fields.filter((field) => ["missing", "manual"].includes(stateFor(field))).length;
+  byId("summary").textContent = `${approved} approved · ${review} to review · ${missing} missing or manual`;
   byId("progress-bar").style.width = `${application.fields.length ? approved / application.fields.length * 100 : 0}%`;
   const list = byId("field-list");
   list.replaceChildren();
@@ -60,10 +70,13 @@ function render() {
     textarea.placeholder = state === "manual" ? "Enter this directly on the scholarship website" : "Add an answer";
     textarea.disabled = state === "manual";
     textarea.addEventListener("input", () => {
+      const wasApproved = field.approved;
       field.answer = textarea.value;
       if (field.approved) field.approved = false;
-      render();
+      if (wasApproved) persistApproval(field, false).catch(() => {});
+      persistSession();
     });
+    textarea.addEventListener("blur", render);
     card.querySelector(".source").textContent = field.source ? `Source: ${field.source}` : field.reason;
     const details = card.querySelector("details");
     if (!field.facts_used?.length) details.remove();
@@ -88,6 +101,7 @@ function render() {
         try {
           await persistApproval(field, nextApproved);
           field.approved = nextApproved;
+          await persistSession();
           render();
         } catch (error) {
           approve.disabled = false;
@@ -101,6 +115,7 @@ function render() {
         try {
           await persistApproval(field, false);
           field.approved = false;
+          await persistSession();
           render();
         } catch (error) {
           field.answer = previousAnswer;
@@ -118,8 +133,9 @@ async function analyze() {
   reviewState.hidden = true;
   errorState.hidden = true;
   try {
+    apiBase = await loadApiBase();
     const page = await messageTab({ type: "SCHOLARSAFE_EXTRACT_FIELDS" });
-    const response = await fetch(`${API_BASE}/api/applications/analyze`, {
+    const response = await fetch(`${apiBase}/api/applications/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -130,18 +146,33 @@ async function analyze() {
     });
     if (!response.ok) throw new Error(`The ScholarSafe service returned ${response.status}.`);
     application = await response.json();
+    await persistSession();
     reviewState.hidden = false;
     render();
   } catch (error) {
     errorState.hidden = false;
     byId("error-message").textContent = error.message.includes("Receiving end")
       ? "This page cannot be inspected. Try an ordinary scholarship form in a regular browser tab."
-      : `${error.message} Make sure the local ScholarSafe API is running.`;
+      : `${error.message} Check the ScholarSafe service address in settings.`;
+  }
+}
+
+async function restore() {
+  try {
+    apiBase = await loadApiBase();
+    application = await loadReviewSession(chrome.storage.session, await activeTab());
+    if (!application) return;
+    emptyState.hidden = true;
+    reviewState.hidden = false;
+    render();
+  } catch {
+    // The normal empty state remains available when this tab has no session.
   }
 }
 
 byId("analyze").addEventListener("click", analyze);
 byId("retry").addEventListener("click", analyze);
+byId("settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
 byId("fill").addEventListener("click", async () => {
   if (!application) return;
   const approved = application.fields.filter((field) => field.approved && !["sensitive", "manual_only", "ignore"].includes(field.action));
@@ -161,3 +192,4 @@ byId("final-review").addEventListener("click", () => {
   byId("final-dialog").showModal();
 });
 byId("close-dialog").addEventListener("click", () => byId("final-dialog").close());
+restore();

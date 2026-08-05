@@ -29,6 +29,14 @@ def test_analyze_application_end_to_end(tmp_path, monkeypatch) -> None:
                 ],
             },
         )
+        application_id = response.json()["application_id"]
+        restored = client.get(f"/api/applications/{application_id}")
+        approved = client.patch(
+            f"/api/applications/{application_id}/fields/first_name/approval",
+            json={"answer": "Andrei", "approved": True},
+        )
+        restored_after_approval = client.get(f"/api/applications/{application_id}")
+        application_list = client.get("/api/applications")
 
     assert response.status_code == 200
     body = response.json()
@@ -46,6 +54,13 @@ def test_analyze_application_end_to_end(tmp_path, monkeypatch) -> None:
     draft = next(field for field in body["fields"] if field["field_id"] == "challenge")
     assert draft["requires_review"] is True
     assert draft["facts_used"]
+    assert restored.status_code == 200
+    assert restored.json()["application_id"] == body["application_id"]
+    assert restored.json()["fields"] == body["fields"]
+    assert approved.status_code == 200
+    restored_first_name = next(field for field in restored_after_approval.json()["fields"] if field["field_id"] == "first_name")
+    assert restored_first_name["approved"] is True
+    assert application_list.json()[0]["fields_completed"] == 1
 
 
 def test_experience_create_and_verify(tmp_path, monkeypatch) -> None:

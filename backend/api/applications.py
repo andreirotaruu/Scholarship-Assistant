@@ -173,6 +173,25 @@ def update_approval(application_id: int, field_id: str, payload: ApprovalUpdate)
             "UPDATE application_fields SET answer = ?, approved = ? WHERE id = ?",
             (payload.answer, int(payload.approved), row["id"]),
         )
+        counts = db.execute(
+            """
+            SELECT
+                SUM(CASE WHEN approved = 1 THEN 1 ELSE 0 END) AS approved_count,
+                SUM(CASE
+                    WHEN action IN ('sensitive', 'manual_only') THEN 1
+                    WHEN action = 'ask_user' AND (approved = 0 OR answer = '') THEN 1
+                    ELSE 0
+                END) AS missing_count
+            FROM application_fields
+            WHERE application_id = ? AND action != 'ignore'
+            """,
+            (application_id,),
+        ).fetchone()
+        status = "needs_information" if counts["missing_count"] else "ready_for_review"
+        db.execute(
+            "UPDATE applications SET fields_completed = ?, missing_fields = ?, status = ?, updated_at = ? WHERE id = ?",
+            (counts["approved_count"], counts["missing_count"], status, now_iso(), application_id),
+        )
     return {"field_id": field_id, "approved": payload.approved, "answer": payload.answer}
 
 
@@ -188,3 +207,64 @@ def list_applications() -> list[dict]:
             """
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+@router.get("/applications/{application_id}", response_model=AnalyzeResponse)
+def get_application(application_id: int) -> AnalyzeResponse:
+    with connection() as db:
+        application = db.execute(
+            """
+            SELECT applications.*, scholarships.name
+            FROM applications
+            JOIN scholarships ON scholarships.id = applications.scholarship_id
+            WHERE applications.id = ? AND applications.user_id = 1
+            """,
+            (application_id,),
+        ).fetchone()
+        if not application:
+            raise HTTPException(status_code=404, detail="Application not found")
+        rows = db.execute(
+            """
+            SELECT application_fields.*, generated_answers.experiences_used_json,
+                   generated_answers.facts_used_json
+            FROM application_fields
+            LEFT JOIN generated_answers ON generated_answers.application_field_id = application_fields.id
+            WHERE application_fields.application_id = ?
+            ORDER BY application_fields.id
+            """,
+            (application_id,),
+        ).fetchall()
+
+    fields = [
+        ClassifiedField(
+            field_id=row["field_id"],
+            label=row["label"],
+            type=row["field_type"],
+            required=bool(row["required"]),
+            options=json.loads(row["options_json"]),
+            max_length=row["max_length"],
+            selector=row["selector"],
+            action=FieldAction(row["action"]),
+            confidence=row["confidence"],
+            source=row["source"],
+            answer=row["answer"],
+            approved=bool(row["approved"]),
+            reason=row["reason"],
+            facts_used=json.loads(row["facts_used_json"] or "[]"),
+            experiences_used=json.loads(row["experiences_used_json"] or "[]"),
+        )
+        for row in rows
+    ]
+    ready = sum(1 for field in fields if field.approved)
+    review = sum(1 for field in fields if field.action == FieldAction.DRAFT_FOR_REVIEW and not field.approved)
+    missing = sum(1 for field in fields if field.action in {FieldAction.ASK_USER, FieldAction.SENSITIVE, FieldAction.MANUAL_ONLY})
+    return AnalyzeResponse(
+        application_id=application["id"],
+        scholarship_name=application["name"],
+        status=application["status"],
+        fields=fields,
+        fields_total=len(fields),
+        ready_count=ready,
+        review_count=review,
+        missing_count=missing,
+    )

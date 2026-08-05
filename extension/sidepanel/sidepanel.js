@@ -1,13 +1,15 @@
 import { loadApiBase } from "../settings.js";
-import { loadReviewSession, saveReviewSession } from "../session_store.js";
+import { clearReviewProgress, loadReviewSession, refreshApplicationSelectors, saveReviewSession, saveTemporaryReviewSession } from "../session_store.js";
 
 let apiBase = "http://localhost:8000";
 let application = null;
+const fieldSaveQueues = new Map();
 
 const byId = (id) => document.getElementById(id);
 const emptyState = byId("empty-state");
 const reviewState = byId("review-state");
 const errorState = byId("error-state");
+const continuationState = byId("continuation-state");
 
 async function activeTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -32,9 +34,22 @@ async function persistApproval(field, approved) {
   if (!response.ok) throw new Error(`Approval could not be saved (${response.status}).`);
 }
 
-async function persistSession() {
+function queueFieldSave(field, approved) {
+  const previous = fieldSaveQueues.get(field.field_id) || Promise.resolve();
+  const queued = previous.catch(() => {}).then(() => persistApproval(field, approved));
+  fieldSaveQueues.set(field.field_id, queued);
+  const cleanup = () => {
+    if (fieldSaveQueues.get(field.field_id) === queued) fieldSaveQueues.delete(field.field_id);
+  };
+  queued.then(cleanup, cleanup);
+  return queued;
+}
+
+async function persistSession({ persistent = true } = {}) {
   if (!application) return;
-  await saveReviewSession(chrome.storage.session, await activeTab(), application);
+  const tab = await activeTab();
+  if (persistent) await saveReviewSession(chrome.storage.session, chrome.storage.local, tab, application);
+  else await saveTemporaryReviewSession(chrome.storage.session, tab, application);
 }
 
 function stateFor(field) {
@@ -73,10 +88,17 @@ function render() {
       const wasApproved = field.approved;
       field.answer = textarea.value;
       if (field.approved) field.approved = false;
-      if (wasApproved) persistApproval(field, false).catch(() => {});
-      persistSession();
+      if (wasApproved) queueFieldSave(field, false).catch(() => {});
+      persistSession({ persistent: false });
     });
-    textarea.addEventListener("blur", render);
+    textarea.addEventListener("blur", async () => {
+      try {
+        await queueFieldSave(field, false);
+        await persistSession();
+      } finally {
+        render();
+      }
+    });
     card.querySelector(".source").textContent = field.source ? `Source: ${field.source}` : field.reason;
     const details = card.querySelector("details");
     if (!field.facts_used?.length) details.remove();
@@ -99,7 +121,7 @@ function render() {
         const nextApproved = !field.approved;
         approve.disabled = true;
         try {
-          await persistApproval(field, nextApproved);
+          await queueFieldSave(field, nextApproved);
           field.approved = nextApproved;
           await persistSession();
           render();
@@ -113,7 +135,7 @@ function render() {
         const previousAnswer = field.answer;
         field.answer = "";
         try {
-          await persistApproval(field, false);
+          await queueFieldSave(field, false);
           field.approved = false;
           await persistSession();
           render();
@@ -132,6 +154,7 @@ async function analyze() {
   emptyState.hidden = true;
   reviewState.hidden = true;
   errorState.hidden = true;
+  continuationState.hidden = true;
   try {
     apiBase = await loadApiBase();
     const page = await messageTab({ type: "SCHOLARSAFE_EXTRACT_FIELDS" });
@@ -163,8 +186,27 @@ async function analyze() {
 async function restore() {
   try {
     apiBase = await loadApiBase();
-    application = await loadReviewSession(chrome.storage.session, await activeTab());
+    const tab = await activeTab();
+    const restored = await loadReviewSession(
+      chrome.storage.session,
+      chrome.storage.local,
+      tab,
+      async (applicationId) => {
+        const response = await fetch(`${apiBase}/api/applications/${applicationId}`);
+        if (!response.ok) throw new Error("Saved application could not be restored.");
+        return response.json();
+      },
+    );
+    application = restored.application;
+    if (!application && restored.progress) {
+      continuationState.hidden = false;
+      byId("continuation-copy").textContent = `ScholarSafe remembers ${restored.progress.pages.length} page${restored.progress.pages.length === 1 ? "" : "s"} from this application site. Analyze this page to continue.`;
+      return;
+    }
     if (!application) return;
+    const currentPage = await messageTab({ type: "SCHOLARSAFE_EXTRACT_FIELDS" });
+    application = refreshApplicationSelectors(application, currentPage.fields);
+    await persistSession({ persistent: false });
     emptyState.hidden = true;
     reviewState.hidden = false;
     render();
@@ -176,6 +218,14 @@ async function restore() {
 byId("analyze").addEventListener("click", analyze);
 byId("retry").addEventListener("click", analyze);
 byId("settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
+byId("clear-progress").addEventListener("click", async () => {
+  await clearReviewProgress(chrome.storage.session, chrome.storage.local, await activeTab());
+  application = null;
+  reviewState.hidden = true;
+  errorState.hidden = true;
+  continuationState.hidden = true;
+  emptyState.hidden = false;
+});
 byId("fill").addEventListener("click", async () => {
   if (!application) return;
   const approved = application.fields.filter((field) => field.approved && !["sensitive", "manual_only", "ignore"].includes(field.action));

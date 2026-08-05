@@ -80,8 +80,9 @@ The extension in `extension/` contains three main parts:
   editing, rejection, or approval.
 - `settings.js` and `options/` let the student connect to a local or hosted
   FastAPI address. Chrome asks for access before a new server is used.
-- `session_store.js` restores the active tab's review after the side panel is
-  closed and reopened during the same browser session.
+- `session_store.js` restores active reviews, tracks multiple pages from the
+  same application site, expires saved pointers after seven days, and provides
+  a device-level clear action.
 - `field_filler.js` writes only approved values and dispatches bubbling
   `input`, `change`, and `blur` events so modern forms recognize the changes.
 
@@ -283,10 +284,13 @@ The extension starts with `http://localhost:8000`. To use another FastAPI
 deployment, select the gear in the side-panel header, enter its service address,
 and approve Chrome's one-time access request for that server.
 
-Each scholarship tab has its own in-browser review session. Closing and
-reopening the side panel on the same page restores edited answers and approval
-state. The authoritative approvals are also persisted to FastAPI as they are
-made.
+Each scholarship tab has its own temporary review session. For browser-restart
+recovery, Chrome stores only an expiring application ID, origin, path, and
+timestamp—never field answers, query strings, fragments, or manual/sensitive
+values. FastAPI remains the authoritative source for answers and approvals.
+Pages on the same application site are tracked together for seven days. Use
+**Clear saved progress on this site** to remove all of that site's device-local
+pointers and temporary tab sessions.
 
 Chrome does not run content scripts on protected pages such as
 `chrome://extensions`, the Chrome Web Store, or some browser-owned new-tab
@@ -400,6 +404,7 @@ node --check extension/options/options.js
 | `PUT` | `/api/experiences/{id}` | Update or explicitly verify an experience |
 | `POST` | `/api/draft` | Draft from verified experiences |
 | `POST` | `/api/applications/analyze` | Classify extracted fields and create suggestions |
+| `GET` | `/api/applications/{id}` | Restore a saved application review |
 | `PATCH` | `/api/applications/{id}/fields/{field_id}/approval` | Persist an approval or rejection |
 | `GET` | `/api/applications` | List tracked applications |
 
@@ -409,10 +414,12 @@ node --check extension/options/options.js
 - Authentication and per-user authorization are not implemented.
 - The deployed dashboard and local SQLite backend are separate persistence
   environments.
-- Side-panel review state survives closing and reopening within the same browser
-  session, but does not yet restore after a full browser restart or across
-  multiple application pages.
-- Custom React components and multi-page applications need further work.
+- Restart recovery requires FastAPI to remain reachable because persistent
+  Chrome storage intentionally contains no answers.
+- Multi-page progress is grouped by site origin; portals hosting several
+  simultaneous applications on one origin need stronger application identity.
+- Custom React controls and single-page application route transitions need
+  further work.
 - The essay generator is deterministic and does not yet use an LLM.
 - The extension is unpacked and has not been packaged for Chrome Web Store
   distribution.
@@ -428,9 +435,8 @@ node --check extension/options/options.js
 3. Add authentication, user ownership, and extension API authorization.
 4. Replace the hosted dashboard's local-only API dependency with an authenticated
    production API.
-5. Persist encrypted multi-page extension progress across browser restarts.
-6. Add an evidence-constrained LLM drafting adapter with structured output.
-7. Harden custom-control support and package the extension.
+5. Add an evidence-constrained LLM drafting adapter with structured output.
+6. Harden custom-control support and package the extension.
 
 Do not add automatic submission as a milestone. The final review and submit
 steps are intentionally outside ScholarSafe's authority.

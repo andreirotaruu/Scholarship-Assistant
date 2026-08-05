@@ -25,7 +25,10 @@ button { border: 0; border-radius: 8px; cursor: pointer; font-weight: 800; paddi
 button.primary, .primary { background: var(--navy); color: white; }
 button.secondary, .secondary { background: white; border: 1px solid var(--line); color: var(--ink); }
 .empty-state button { width: 100%; }.promise { font-size: 10px; color: var(--muted); margin-top: 12px; }
-.review-head h1 { font-size: 27px; }.review-head > p:last-child { color: var(--muted); margin: 0; font-size: 11px; }
+.continuation { border: 1px solid #c8ddd2; background: #eff8f2; border-radius: 10px; padding: 13px; margin: -35px 0 24px; }
+.continuation strong { color: var(--green); font-size: 10px; }.continuation p { color: var(--muted); font-size: 10px; margin: 4px 0 0; }
+.review-head h1 { font-size: 27px; }#summary { color: var(--muted); margin: 0; font-size: 11px; }
+.clear-progress { background: transparent; color: var(--muted); padding: 6px 0; font-size: 9px; font-weight: 600; }
 .progress { height: 5px; background: #e2e6e2; border-radius: 99px; margin: 17px 0; overflow: hidden; }.progress span { display: block; height: 100%; background: var(--green); width: 0; transition: width .25s; }
 .field-list { display: grid; gap: 10px; }
 .field-card { background: white; border: 1px solid var(--line); border-radius: 11px; padding: 14px; }

@@ -83,6 +83,10 @@ class ExperienceCreate(BaseModel):
     source: str = "Student-entered"
 
 
+class ExperienceUpdate(ExperienceCreate):
+    pass
+
+
 class Experience(ExperienceCreate):
     id: int
     updated_at: str

@@ -132,6 +132,7 @@ h1 { font-family: Georgia, serif; font-size: clamp(32px, 4vw, 45px); line-height
 .panel-heading h2 { font-family: Georgia, serif; font-size: 19px; font-weight: 500; margin-bottom: 4px; }
 .panel-heading p { color: var(--muted); font-size: 10px; margin: 0; }
 .verified-pill { color: var(--green); background: #e9f6ed; border-radius: 99px; padding: 5px 9px; font-size: 9px; font-weight: 800; }
+.verified-pill.pending { color: #936019; background: var(--amber-bg); }
 .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 17px 18px; }
 .profile-field > label { display: block; font-weight: 800; font-size: 10px; margin-bottom: 7px; }
 .profile-field > input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; outline: none; font-size: 12px; }
@@ -144,6 +145,13 @@ h1 { font-family: Georgia, serif; font-size: clamp(32px, 4vw, 45px); line-height
 .experience-intro > span { color: var(--green); font-size: 18px; }
 .experience-intro strong, .privacy-callout strong { font-size: 12px; }
 .experience-intro p, .privacy-callout p { color: var(--muted); font-size: 10px; margin: 4px 0 0; }
+.offline-banner { border: 1px solid #e7ca91; background: #fff8e9; color: #81591c; border-radius: 10px; padding: 11px 14px; margin: 0 0 16px; font-size: 10px; }
+.experience-form { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.experience-form .panel-heading, .experience-form .wide { grid-column: 1 / -1; }
+.experience-form label { display: grid; gap: 7px; font-size: 10px; font-weight: 800; }
+.experience-form label span { color: var(--muted); font-weight: 400; }
+.experience-form input, .experience-form textarea { border: 1px solid var(--line); border-radius: 8px; padding: 10px 11px; font: inherit; resize: vertical; }
+.form-actions { display: flex; justify-content: flex-end; }
 .experience-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 .experience-card { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 22px; position: relative; overflow: hidden; }
 .experience-number { position: absolute; right: -4px; top: -19px; color: #f0f2ee; font-family: Georgia, serif; font-size: 100px; line-height: 1; }
@@ -157,6 +165,8 @@ h1 { font-family: Georgia, serif; font-size: clamp(32px, 4vw, 45px); line-height
 .table-head, .table-row { display: grid; grid-template-columns: 2fr .8fr 1fr .9fr auto; gap: 18px; align-items: center; padding: 14px 18px; }
 .table-head { background: #f1f3f0; color: #76817b; font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .table-row { font-size: 10px; }
+.table-row + .table-row { border-top: 1px solid var(--line); }
+.table-empty { padding: 30px; text-align: center; color: var(--muted); font-size: 10px; }
 .scholarship-cell { display: flex; align-items: center; gap: 10px; }
 .scholarship-logo { width: 38px; height: 38px; border-radius: 9px; background: var(--navy); color: var(--lime); display: grid; place-items: center; font-family: Georgia, serif; font-size: 18px; }
 .scholarship-cell > div:last-child { display: grid; gap: 3px; }
@@ -196,7 +206,7 @@ h1 { font-family: Georgia, serif; font-size: clamp(32px, 4vw, 45px); line-height
   .review-card { grid-template-columns: 34px 1fr; } .review-content { padding-inline: 14px; }
   .card-actions { flex-wrap: wrap; } .final-review { gap: 14px; align-items: flex-end; }
   .profile-summary { grid-template-columns: auto 1fr; } .mini-progress { grid-column: 1 / -1; }
-  .profile-grid, .experience-grid { grid-template-columns: 1fr; }
+  .profile-grid, .experience-grid, .experience-form { grid-template-columns: 1fr; }
   .application-table { overflow-x: auto; } .table-row { min-width: 450px; }
   h1 { font-size: 34px; }
 }

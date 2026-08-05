@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from backend.api.helpers import row_to_experience
 from backend.database.db import connection, now_iso
-from backend.models.schemas import Experience, ExperienceCreate, ProfileFieldValue, ProfileResponse, ProfileUpdate
+from backend.models.schemas import Experience, ExperienceCreate, ExperienceUpdate, ProfileFieldValue, ProfileResponse, ProfileUpdate
 
 
 router = APIRouter(prefix="/api", tags=["profile"])
@@ -85,4 +85,34 @@ def create_experience(payload: ExperienceCreate) -> Experience:
             ),
         )
         row = db.execute("SELECT * FROM experiences WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return Experience(**row_to_experience(row))
+
+
+@router.put("/experiences/{experience_id}", response_model=Experience)
+def update_experience(experience_id: int, payload: ExperienceUpdate) -> Experience:
+    timestamp = now_iso()
+    with connection() as db:
+        existing = db.execute("SELECT id FROM experiences WHERE id = ? AND user_id = 1", (experience_id,)).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Experience not found")
+        db.execute(
+            """
+            UPDATE experiences SET
+                title = ?, situation = ?, actions_json = ?, results_json = ?,
+                themes_json = ?, verified = ?, source = ?, updated_at = ?
+            WHERE id = ? AND user_id = 1
+            """,
+            (
+                payload.title,
+                payload.situation,
+                json.dumps(payload.actions),
+                json.dumps(payload.results),
+                json.dumps(payload.themes),
+                int(payload.verified),
+                payload.source,
+                timestamp,
+                experience_id,
+            ),
+        )
+        row = db.execute("SELECT * FROM experiences WHERE id = ?", (experience_id,)).fetchone()
     return Experience(**row_to_experience(row))

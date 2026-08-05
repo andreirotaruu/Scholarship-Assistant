@@ -46,3 +46,31 @@ def test_analyze_application_end_to_end(tmp_path, monkeypatch) -> None:
     draft = next(field for field in body["fields"] if field["field_id"] == "challenge")
     assert draft["requires_review"] is True
     assert draft["facts_used"]
+
+
+def test_experience_create_and_verify(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("SCHOLARSAFE_DATABASE", str(tmp_path / "experiences.db"))
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/experiences",
+            json={
+                "title": "Peer tutoring",
+                "situation": "A classmate needed help understanding recursion.",
+                "actions": ["Made visual examples", "Practiced problems together"],
+                "results": ["The classmate completed the assignment independently"],
+                "themes": ["service", "communication"],
+                "verified": False,
+            },
+        )
+        assert created.status_code == 201
+        experience = created.json()
+        assert experience["verified"] is False
+
+        experience["verified"] = True
+        updated = client.put(f"/api/experiences/{experience['id']}", json=experience)
+        assert updated.status_code == 200
+        assert updated.json()["verified"] is True
+
+        verified = client.get("/api/experiences?verified_only=true")
+        assert verified.status_code == 200
+        assert any(item["title"] == "Peer tutoring" for item in verified.json())

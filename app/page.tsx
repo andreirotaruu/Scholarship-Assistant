@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { apiRequest } from "@/app/lib/api";
 
 type Section = "review" | "profile" | "experiences" | "applications";
 type FieldState = "approved" | "review" | "missing" | "manual";
@@ -23,6 +24,30 @@ type ProfileField = {
   source: string;
   updated: string;
   verified: boolean;
+};
+
+type ExperienceRecord = {
+  id: number;
+  title: string;
+  situation: string;
+  actions: string[];
+  results: string[];
+  themes: string[];
+  verified: boolean;
+  source: string;
+  updated_at: string;
+};
+
+type ApplicationRecord = {
+  id: number;
+  name: string;
+  url: string;
+  deadline: string | null;
+  status: string;
+  fields_completed: number;
+  fields_total: number;
+  missing_fields: number;
+  updated_at: string;
 };
 
 const initialReviewFields: ReviewField[] = [
@@ -182,8 +207,7 @@ function ProfileView() {
   const verifiedCount = profile.filter((field) => field.verified).length;
   useEffect(() => {
     let active = true;
-    fetch("http://localhost:8000/api/profile")
-      .then((response) => response.ok ? response.json() : Promise.reject())
+    apiRequest<{ fields: Array<{ path: string; label: string; value: unknown; verified: boolean; source: string; updated_at?: string }> }>("/api/profile")
       .then((payload) => {
         if (!active || !Array.isArray(payload.fields)) return;
         setProfile(payload.fields.map((field: { path: string; label: string; value: unknown; verified: boolean; source: string; updated_at?: string }) => ({
@@ -203,7 +227,7 @@ function ProfileView() {
   const saveProfile = async () => {
     setSaveState("saving");
     try {
-      const response = await fetch("http://localhost:8000/api/profile", {
+      await apiRequest("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -216,7 +240,6 @@ function ProfileView() {
           })),
         }),
       });
-      if (!response.ok) throw new Error("Save failed");
       setSaveState("saved");
     } catch {
       setSaveState("offline");
@@ -243,20 +266,74 @@ function ProfileView() {
 }
 
 function ExperiencesView() {
-  const experiences = [
-    { title: "Building Price Intel", themes: ["Entrepreneurship", "Problem solving", "Technology"], actions: 4, results: 3, description: "Built a FastAPI marketplace intelligence MVP and learned to filter noisy comparable listings." },
-    { title: "Logistics engineering internship", themes: ["Systems thinking", "Persistence"], actions: 3, results: 2, description: "Collected container tracking events with Python, Selenium, APIs, and XML for CargoWise workflows." },
+  const previewExperiences: ExperienceRecord[] = [
+    { id: -1, title: "Building Price Intel", situation: "Built a FastAPI marketplace intelligence MVP and learned to filter noisy comparable listings.", themes: ["Entrepreneurship", "Problem solving", "Technology"], actions: ["Built a FastAPI backend", "Collected marketplace data", "Calculated pricing metrics", "Filtered inaccurate comparables"], results: ["Created a working MVP", "Improved backend skills", "Learned to evaluate noisy data"], verified: true, source: "Preview data", updated_at: "" },
+    { id: -2, title: "Logistics engineering internship", situation: "Collected container tracking events with Python, Selenium, APIs, and XML for CargoWise workflows.", themes: ["Systems thinking", "Persistence"], actions: ["Collected tracking events", "Worked with APIs", "Integrated XML workflows"], results: ["Built a tracking integration", "Improved systems knowledge"], verified: true, source: "Preview data", updated_at: "" },
   ];
+  const [experiences, setExperiences] = useState(previewExperiences);
+  const [showForm, setShowForm] = useState(false);
+  const [connection, setConnection] = useState<"loading" | "live" | "offline">("loading");
+  const [form, setForm] = useState({ title: "", situation: "", actions: "", results: "", themes: "" });
+
+  useEffect(() => {
+    let active = true;
+    apiRequest<ExperienceRecord[]>("/api/experiences")
+      .then((records) => { if (active) { setExperiences(records); setConnection("live"); } })
+      .catch(() => { if (active) setConnection("offline"); });
+    return () => { active = false; };
+  }, []);
+
+  const saveExperience = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      const created = await apiRequest<ExperienceRecord>("/api/experiences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title.trim(), situation: form.situation.trim(),
+          actions: form.actions.split("\n").map((item) => item.trim()).filter(Boolean),
+          results: form.results.split("\n").map((item) => item.trim()).filter(Boolean),
+          themes: form.themes.split(",").map((item) => item.trim()).filter(Boolean),
+          verified: false, source: "Student-entered",
+        }),
+      });
+      setExperiences((current) => [created, ...current]);
+      setForm({ title: "", situation: "", actions: "", results: "", themes: "" });
+      setShowForm(false);
+      setConnection("live");
+    } catch { setConnection("offline"); }
+  };
+
+  const toggleVerification = async (experience: ExperienceRecord) => {
+    if (experience.id < 0) return;
+    try {
+      const updated = await apiRequest<ExperienceRecord>(`/api/experiences/${experience.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...experience, verified: !experience.verified }),
+      });
+      setExperiences((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch { setConnection("offline"); }
+  };
   return (
     <>
-      <header className="page-header"><div><div className="breadcrumb"><span>Profile</span><b>/</b>Experience bank</div><h1>Stories grounded in fact</h1><p>Essay drafts may use only the experiences you verify here.</p></div><button className="button primary">+ Add experience</button></header>
+      <header className="page-header"><div><div className="breadcrumb"><span>Profile</span><b>/</b>Experience bank</div><h1>Stories grounded in fact</h1><p>Essay drafts may use only the experiences you verify here.</p></div><button className="button primary" onClick={() => setShowForm((value) => !value)} disabled={connection === "offline"}>{showForm ? "Cancel" : "+ Add experience"}</button></header>
       <div className="experience-intro"><span>✦</span><div><strong>A guardrail against invented stories</strong><p>Situation, actions, and results stay traceable. Drafts will show every fact they use.</p></div></div>
+      {connection === "offline" && <div className="offline-banner">Preview data is shown. Start FastAPI to add and verify experiences.</div>}
+      {showForm && <form className="experience-form" onSubmit={saveExperience}>
+        <div className="panel-heading"><div><span className="section-icon">NEW</span><div><h2>Add an experience</h2><p>Save the facts first, then verify the record when every detail is accurate.</p></div></div></div>
+        <label>Title<input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label>
+        <label className="wide">Situation<textarea required rows={3} value={form.situation} onChange={(event) => setForm({ ...form, situation: event.target.value })} /></label>
+        <label>Actions <span>one per line</span><textarea required rows={5} value={form.actions} onChange={(event) => setForm({ ...form, actions: event.target.value })} /></label>
+        <label>Results <span>one per line</span><textarea required rows={5} value={form.results} onChange={(event) => setForm({ ...form, results: event.target.value })} /></label>
+        <label className="wide">Themes <span>comma separated</span><input value={form.themes} onChange={(event) => setForm({ ...form, themes: event.target.value })} /></label>
+        <div className="wide form-actions"><button className="button primary" type="submit">Save unverified experience</button></div>
+      </form>}
       <div className="experience-grid">
         {experiences.map((experience, index) => (
           <article className="experience-card" key={experience.title}>
-            <div className="experience-number">0{index + 1}</div><div className="experience-card-head"><span className="verified-pill">✓ Verified</span><button className="icon-button">•••</button></div>
-            <h2>{experience.title}</h2><p>{experience.description}</p><div className="theme-list">{experience.themes.map((theme) => <span key={theme}>{theme}</span>)}</div>
-            <div className="experience-stats"><span><b>{experience.actions}</b> actions</span><span><b>{experience.results}</b> results</span></div><button className="button ghost full">View verified facts</button>
+            <div className="experience-number">{String(index + 1).padStart(2, "0")}</div><div className="experience-card-head"><span className={`verified-pill ${experience.verified ? "" : "pending"}`}>{experience.verified ? "✓ Verified" : "Needs verification"}</span></div>
+            <h2>{experience.title}</h2><p>{experience.situation}</p><div className="theme-list">{experience.themes.map((theme) => <span key={theme}>{theme}</span>)}</div>
+            <div className="experience-stats"><span><b>{experience.actions.length}</b> actions</span><span><b>{experience.results.length}</b> results</span></div><button className="button ghost full" onClick={() => toggleVerification(experience)} disabled={experience.id < 0}>{experience.verified ? "Mark as needing changes" : "Verify these facts"}</button>
           </article>
         ))}
       </div>
@@ -265,16 +342,29 @@ function ExperiencesView() {
 }
 
 function ApplicationsView({ onReview }: { onReview: () => void }) {
+  const preview: ApplicationRecord[] = [{ id: -1, name: "Horizon STEM Scholarship", url: "https://horizon-foundation.org", deadline: "2026-10-15", status: "needs_review", fields_completed: 3, fields_total: 5, missing_fields: 2, updated_at: "" }];
+  const [applications, setApplications] = useState(preview);
+  const [offline, setOffline] = useState(false);
+  useEffect(() => {
+    let active = true;
+    apiRequest<ApplicationRecord[]>("/api/applications")
+      .then((records) => { if (active) { setApplications(records.length ? records : []); setOffline(false); } })
+      .catch(() => { if (active) setOffline(true); });
+    return () => { active = false; };
+  }, []);
+  const statusLabel = (status: string) => status.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
   return (
     <>
       <header className="page-header"><div><div className="breadcrumb"><span>Workspace</span><b>/</b>Applications</div><h1>Your applications</h1><p>Track prepared answers, missing information, and deadlines.</p></div><a className="button primary" href="/demo-application.html" target="_blank" rel="noreferrer">Open safe test application</a></header>
       <section className="application-table">
         <div className="table-head"><span>Scholarship</span><span>Deadline</span><span>Progress</span><span>Status</span><span /></div>
-        <div className="table-row">
-          <div className="scholarship-cell"><div className="scholarship-logo">H</div><div><strong>Horizon STEM Scholarship</strong><span>horizon-foundation.org</span></div></div><span>Oct 15, 2026</span>
-          <div className="table-progress"><div><span style={{ width: "60%" }} /></div><b>3 / 5</b></div><span className="status-pill">Needs review</span><button className="button small ghost" onClick={onReview}>Review answers</button>
-        </div>
+        {applications.map((application) => <div className="table-row" key={application.id}>
+          <div className="scholarship-cell"><div className="scholarship-logo">{application.name.charAt(0).toUpperCase()}</div><div><strong>{application.name}</strong><span>{new URL(application.url).hostname}</span></div></div><span>{application.deadline ? new Date(`${application.deadline}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Not listed"}</span>
+          <div className="table-progress"><div><span style={{ width: `${application.fields_total ? application.fields_completed / application.fields_total * 100 : 0}%` }} /></div><b>{application.fields_completed} / {application.fields_total}</b></div><span className="status-pill">{statusLabel(application.status)}</span><button className="button small ghost" onClick={onReview}>Review answers</button>
+        </div>)}
+        {!applications.length && <div className="table-empty">No applications yet. Analyze the safe test form with the extension to create one.</div>}
       </section>
+      {offline && <div className="offline-banner">Preview data is shown. Start FastAPI to see applications analyzed by the extension.</div>}
       <div className="privacy-callout"><div className="shield-shape">✓</div><div><strong>No automatic submission—ever.</strong><p>Applications move to “ready to submit” only after your final review. You submit on the scholarship website.</p></div></div>
     </>
   );

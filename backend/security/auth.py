@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from fastapi import Header, HTTPException, status
 
-from backend.database.db import connection, now_iso
+from backend.database.db import PROFILE_SEED, connection, now_iso
 
 
 DEVELOPMENT_TOKEN = "dev-scholar-token"
@@ -69,6 +69,18 @@ def ensure_user(email: str) -> AuthenticatedUser:
                 "INSERT INTO profiles(user_id, created_at, updated_at) VALUES(?, ?, ?)",
                 (user_id, timestamp, timestamp),
             ).lastrowid
+        for path, label, _sample_value, _sample_verified, _sample_source in PROFILE_SEED:
+            value = email if path == "personal.email" else [] if path == "education.majors" else None
+            verified = path == "personal.email"
+            source = "Authenticated token identity" if verified else "No source"
+            db.execute(
+                """
+                INSERT OR IGNORE INTO profile_fields(
+                    profile_id, path, label, value_json, verified, source, updated_at
+                ) VALUES(?, ?, ?, ?, ?, ?, ?)
+                """,
+                (profile_id, path, label, json.dumps(value), int(verified), source, timestamp),
+            )
     return AuthenticatedUser(id=user_id, email=email, profile_id=profile_id)
 
 

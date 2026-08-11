@@ -186,22 +186,25 @@ def initialize_database() -> None:
             db.execute("DROP TABLE profile_fields_legacy")
         for statement in SCHEMA:
             db.execute(statement)
-        timestamp = now_iso()
-        db.execute("INSERT OR IGNORE INTO users(id, email, created_at) VALUES(1, ?, ?)", ("example@email.com", timestamp))
-        db.execute(
-            "INSERT OR IGNORE INTO profiles(id, user_id, created_at, updated_at) VALUES(1, 1, ?, ?)",
-            (timestamp, timestamp),
-        )
-        for path_name, label, value, verified, source in PROFILE_SEED:
+        if os.getenv("SCHOLARSAFE_ENV", "development").lower() != "production":
+            timestamp = now_iso()
+            db.execute("INSERT OR IGNORE INTO users(id, email, created_at) VALUES(1, ?, ?)", ("example@email.com", timestamp))
             db.execute(
-                """
-                INSERT OR IGNORE INTO profile_fields(
-                    profile_id, path, label, value_json, verified, source, updated_at
-                ) VALUES(1, ?, ?, ?, ?, ?, ?)
-                """,
-                (path_name, label, json.dumps(value), verified, source, timestamp),
+                "INSERT OR IGNORE INTO profiles(id, user_id, created_at, updated_at) VALUES(1, 1, ?, ?)",
+                (timestamp, timestamp),
             )
-        count = db.execute("SELECT COUNT(*) FROM experiences").fetchone()[0]
+            for path_name, label, value, verified, source in PROFILE_SEED:
+                db.execute(
+                    """
+                    INSERT OR IGNORE INTO profile_fields(
+                        profile_id, path, label, value_json, verified, source, updated_at
+                    ) VALUES(1, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (path_name, label, json.dumps(value), verified, source, timestamp),
+                )
+            count = db.execute("SELECT COUNT(*) FROM experiences WHERE user_id = 1").fetchone()[0]
+        else:
+            count = 1
         if count == 0:
             db.executemany(
                 """

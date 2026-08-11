@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeApiBase } from "../extension/settings.js";
+import { authenticatedHeaders, normalizeApiBase, normalizeApiToken } from "../extension/settings.js";
 import {
   PROGRESS_TTL_MS,
   clearReviewProgress,
@@ -40,6 +40,16 @@ test("normalizes a configurable API base safely", () => {
   assert.equal(normalizeApiBase(" https://api.example.org/v1/ "), "https://api.example.org/v1");
   assert.throws(() => normalizeApiBase("file:///tmp/service"), /http/);
   assert.throws(() => normalizeApiBase("https://user:secret@example.org"), /credentials/);
+});
+
+test("validates personal API tokens and builds bearer authorization", () => {
+  assert.equal(normalizeApiToken(" token-123 "), "token-123");
+  assert.throws(() => normalizeApiToken(""), /personal API token/);
+  assert.throws(() => normalizeApiToken("two words"), /spaces/);
+  assert.deepEqual(authenticatedHeaders("token-123", { "Content-Type": "application/json" }), {
+    "Content-Type": "application/json",
+    Authorization: "Bearer token-123",
+  });
 });
 
 test("temporary review sessions are isolated by tab and exact page URL", async () => {

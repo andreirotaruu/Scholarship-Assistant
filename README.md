@@ -61,12 +61,13 @@ the local FastAPI service when it is available.
 The backend in `backend/` is the decision and persistence layer. It:
 
 1. Validates requests with Pydantic models.
-2. Loads profile fields and verified experiences.
-3. Classifies every extracted form field.
-4. Selects a profile answer or creates a reviewable draft.
-5. Calculates confidence and records the source.
-6. Persists the scholarship, application, fields, drafts, and approvals.
-7. Returns every suggestion with `approved: false`.
+2. Authenticates a personal bearer token and resolves its owning user.
+3. Loads only that user's profile fields and verified experiences.
+4. Classifies every extracted form field.
+5. Selects a profile answer or creates a reviewable draft.
+6. Calculates confidence and records the source.
+7. Persists user-owned applications, fields, drafts, and approvals.
+8. Returns every suggestion with `approved: false`.
 
 The backend has no application-submission endpoint.
 
@@ -254,9 +255,34 @@ uvicorn backend.main:app --reload
 FastAPI runs at `http://localhost:8000`. Interactive API documentation is
 available at `http://localhost:8000/docs`.
 
+Local development uses the token `dev-scholar-token`. The dashboard uses it
+automatically for a localhost API. Enter the same token in the extension's
+settings screen. Every `/api` route requires `Authorization: Bearer <token>`;
+`/health` remains public for service checks.
+
 On first launch, the backend creates the SQLite database and inserts a sample
 profile and two verified experiences. Replace the sample data before using the
 project with a real application.
+
+### Production API configuration
+
+The included `Dockerfile` runs FastAPI as a non-root user, stores SQLite under
+`/data`, and requires production authentication configuration. A deployment
+must provide a persistent volume and these environment values:
+
+```bash
+SCHOLARSAFE_ENV=production
+SCHOLARSAFE_DATABASE=/data/scholarsafe.db
+SCHOLARSAFE_API_TOKENS={"replace-with-a-long-random-token":"student@example.edu"}
+SCHOLARSAFE_ALLOWED_ORIGINS=https://your-dashboard.example
+```
+
+Generate opaque tokens with a cryptographically secure secret generator and
+provide them through the hosting platform's secret manager. Never commit a
+production token or expose one through `NEXT_PUBLIC_API_TOKEN`; that dashboard
+variable is for local development only. SQLite deployment requires one service
+instance and durable backups. A multi-instance deployment should first migrate
+the backend to a managed transactional database.
 
 ### 4. Start the dashboard
 
@@ -280,14 +306,17 @@ Open the exact local URL printed by the development server. It is usually
 7. Select the ScholarSafe toolbar icon.
 8. Choose **Analyze application**.
 
-The extension starts with `http://localhost:8000`. To use another FastAPI
-deployment, select the gear in the side-panel header, enter its service address,
-and approve Chrome's one-time access request for that server.
+The extension starts with `http://localhost:8000` and the development token. To
+use another FastAPI deployment, select the gear in the side-panel header, enter
+its service address and your issued personal token, then approve Chrome's
+one-time access request for that server.
 
 Each scholarship tab has its own temporary review session. For browser-restart
-recovery, Chrome stores only an expiring application ID, origin, path, and
-timestamp—never field answers, query strings, fragments, or manual/sensitive
-values. FastAPI remains the authoritative source for answers and approvals.
+recovery, the progress record stores only an expiring application ID, origin,
+path, and timestamp—never field answers, query strings, fragments, or
+manual/sensitive values. The personal API token is stored separately in the
+extension's Chrome profile. FastAPI remains the authoritative source for answers
+and approvals.
 Pages on the same application site are tracked together for seven days. Use
 **Clear saved progress on this site** to remove all of that site's device-local
 pointers and temporary tab sessions.
@@ -394,6 +423,9 @@ node --check extension/options/options.js
 
 ## API overview
 
+All `/api` routes below require a personal bearer token and enforce record
+ownership server-side.
+
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `GET` | `/health` | Service status and submission-disabled signal |
@@ -410,8 +442,11 @@ node --check extension/options/options.js
 
 ## Current limitations
 
-- FastAPI runs locally and uses a single seeded `user_id=1`.
-- Authentication and per-user authorization are not implemented.
+- FastAPI still runs locally; production hosting and managed database backups
+  are not configured.
+- Authentication uses administrator-issued opaque tokens from environment
+  configuration. Self-service sign-in, revocation UI, expiry, and rotation are
+  not implemented yet.
 - The deployed dashboard and local SQLite backend are separate persistence
   environments.
 - Restart recovery requires FastAPI to remain reachable because persistent
@@ -431,9 +466,10 @@ node --check extension/options/options.js
 
 1. Load the updated unpacked extension in Chrome and repeat the approved-only
    workflow with a consenting student on the inspected scholarship form.
-2. Deploy FastAPI with a production database.
-3. Add authentication, user ownership, and extension API authorization.
-4. Replace the hosted dashboard's local-only API dependency with an authenticated
+2. Deploy the authenticated FastAPI service with a production database,
+   backups, TLS, and secret-managed token configuration.
+3. Add token expiry, rotation, and a self-service identity provider.
+4. Replace the hosted dashboard's local-only API dependency with a server-side authenticated
    production API.
 5. Add an evidence-constrained LLM drafting adapter with structured output.
 6. Harden custom-control support and package the extension.

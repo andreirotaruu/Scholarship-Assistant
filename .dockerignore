@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+!.env.example
+.venv
+node_modules
+.next
+.vinext
+dist
+backend/scholarsafe.db
+__pycache__
+.pytest_cache
+*.pyc

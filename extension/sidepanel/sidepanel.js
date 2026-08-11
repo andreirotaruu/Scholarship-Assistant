@@ -1,7 +1,8 @@
-import { loadApiBase } from "../settings.js";
+import { authenticatedHeaders, loadApiSettings } from "../settings.js";
 import { clearReviewProgress, loadReviewSession, refreshApplicationSelectors, saveReviewSession, saveTemporaryReviewSession } from "../session_store.js";
 
 let apiBase = "http://localhost:8000";
+let apiToken = "";
 let application = null;
 const fieldSaveQueues = new Map();
 
@@ -27,10 +28,11 @@ async function persistApproval(field, approved) {
     `${apiBase}/api/applications/${application.application_id}/fields/${encodeURIComponent(field.field_id)}/approval`,
     {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: authenticatedHeaders(apiToken, { "Content-Type": "application/json" }),
       body: JSON.stringify({ answer: field.answer, approved })
     }
   );
+  if (response.status === 401) throw new Error("Your personal API token was rejected. Update it in ScholarSafe settings.");
   if (!response.ok) throw new Error(`Approval could not be saved (${response.status}).`);
 }
 
@@ -156,20 +158,21 @@ async function analyze() {
   errorState.hidden = true;
   continuationState.hidden = true;
   try {
-    apiBase = await loadApiBase();
+    ({ apiBase, apiToken } = await loadApiSettings());
     const page = await messageTab({ type: "SCHOLARSAFE_EXTRACT_FIELDS" });
     if (!page.fields?.length) {
       throw new Error("No visible scholarship application fields were found. Complete any eligibility or terms step on the page, then try again.");
     }
     const response = await fetch(`${apiBase}/api/applications/analyze`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authenticatedHeaders(apiToken, { "Content-Type": "application/json" }),
       body: JSON.stringify({
         scholarship_name: page.title || "Scholarship application",
         url: page.url,
         fields: page.fields
       })
     });
+    if (response.status === 401) throw new Error("Your personal API token was rejected. Update it in ScholarSafe settings.");
     if (!response.ok) throw new Error(`The ScholarSafe service returned ${response.status}.`);
     application = await response.json();
     await persistSession();
@@ -185,14 +188,14 @@ async function analyze() {
 
 async function restore() {
   try {
-    apiBase = await loadApiBase();
+    ({ apiBase, apiToken } = await loadApiSettings());
     const tab = await activeTab();
     const restored = await loadReviewSession(
       chrome.storage.session,
       chrome.storage.local,
       tab,
       async (applicationId) => {
-        const response = await fetch(`${apiBase}/api/applications/${applicationId}`);
+        const response = await fetch(`${apiBase}/api/applications/${applicationId}`, { headers: authenticatedHeaders(apiToken) });
         if (!response.ok) throw new Error("Saved application could not be restored.");
         return response.json();
       },

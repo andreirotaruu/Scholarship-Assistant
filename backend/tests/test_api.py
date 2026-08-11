@@ -112,7 +112,9 @@ def test_users_cannot_read_or_mutate_each_others_records(tmp_path, monkeypatch) 
             json={"fields": [{"path": "personal.first_name", "label": "First name", "value": "Alice", "verified": True}]},
         )
         assert alice_profile.status_code == 200
-        assert client.get("/api/profile", headers=bob).json()["fields"] == []
+        bob_fields = client.get("/api/profile", headers=bob).json()["fields"]
+        assert next(field for field in bob_fields if field["path"] == "personal.email")["value"] == "bob@example.edu"
+        assert all(field["value"] != "Alice" for field in bob_fields)
 
         experience = client.post(
             "/api/experiences",

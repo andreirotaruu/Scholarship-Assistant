@@ -38,3 +38,12 @@ def test_legacy_profile_fields_migrate_to_per_profile_uniqueness(tmp_path, monke
     assert "path TEXT NOT NULL UNIQUE" not in table_sql
     assert "idx_profile_fields_profile_path" in indexes
     assert value == '"Existing"'
+
+
+def test_production_database_starts_without_demo_user(tmp_path, monkeypatch) -> None:
+    database = tmp_path / "production.db"
+    monkeypatch.setenv("SCHOLARSAFE_DATABASE", str(database))
+    monkeypatch.setenv("SCHOLARSAFE_ENV", "production")
+    initialize_database()
+    with sqlite3.connect(database) as db:
+        assert db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0

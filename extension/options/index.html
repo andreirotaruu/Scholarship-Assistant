@@ -15,6 +15,9 @@
         <label for="api-base">FastAPI service address</label>
         <input id="api-base" name="api-base" type="url" required placeholder="http://localhost:8000" />
         <p class="hint">For local development, keep the default address. ScholarSafe will ask before accessing a different server.</p>
+        <label for="api-token">Personal API token</label>
+        <input id="api-token" name="api-token" type="password" required autocomplete="off" placeholder="Token issued by your ScholarSafe service" />
+        <p class="hint">This token selects your account. It is stored only in this Chrome profile and is never placed into scholarship forms.</p>
         <button type="submit">Save connection</button>
         <p id="status" role="status"></p>
       </form>

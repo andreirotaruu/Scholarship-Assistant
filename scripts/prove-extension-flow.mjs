@@ -7,6 +7,7 @@ import { Window } from "happy-dom";
 const root = new URL("../", import.meta.url);
 const port = 8108;
 const apiBase = `http://127.0.0.1:${port}`;
+const authHeaders = { Authorization: "Bearer dev-scholar-token" };
 const databasePath = `/tmp/scholarsafe-flow-${process.pid}.db`;
 
 async function waitForApi() {
@@ -58,7 +59,7 @@ try {
   const fields = window.ScholarSafe.extractFields();
   const analyzeResponse = await fetch(`${apiBase}/api/applications/analyze`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { ...authHeaders, "Content-Type": "application/json" },
     body: JSON.stringify({
       scholarship_name: "Horizon STEM Scholarship — Safe Test Application",
       url: "http://localhost:3000/demo-application.html",
@@ -84,7 +85,7 @@ try {
       `${apiBase}/api/applications/${application.application_id}/fields/${encodeURIComponent(field.field_id)}/approval`,
       {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({ answer: field.answer, approved: true }),
       },
     );
@@ -95,7 +96,7 @@ try {
     `${apiBase}/api/applications/${application.application_id}/fields/final_confirmation/approval`,
     {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({ answer: "Yes", approved: true }),
     },
   );

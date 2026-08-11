@@ -32,6 +32,20 @@ def now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+PROFILE_FIELDS_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS profile_fields (
+        id INTEGER PRIMARY KEY,
+        profile_id INTEGER NOT NULL REFERENCES profiles(id),
+        path TEXT NOT NULL,
+        label TEXT NOT NULL,
+        value_json TEXT,
+        verified INTEGER NOT NULL DEFAULT 0,
+        source TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+"""
+
+
 SCHEMA = (
     """
     CREATE TABLE IF NOT EXISTS users (
@@ -48,18 +62,7 @@ SCHEMA = (
         updated_at TEXT NOT NULL
     )
     """,
-    """
-    CREATE TABLE IF NOT EXISTS profile_fields (
-        id INTEGER PRIMARY KEY,
-        profile_id INTEGER NOT NULL REFERENCES profiles(id),
-        path TEXT NOT NULL UNIQUE,
-        label TEXT NOT NULL,
-        value_json TEXT,
-        verified INTEGER NOT NULL DEFAULT 0,
-        source TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    )
-    """,
+    PROFILE_FIELDS_SCHEMA,
     """
     CREATE TABLE IF NOT EXISTS experiences (
         id INTEGER PRIMARY KEY,
@@ -136,6 +139,10 @@ SCHEMA = (
         created_at TEXT NOT NULL
     )
     """,
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_profile_fields_profile_path ON profile_fields(profile_id, path)",
+    "CREATE INDEX IF NOT EXISTS idx_experiences_user_verified ON experiences(user_id, verified)",
+    "CREATE INDEX IF NOT EXISTS idx_applications_user_updated ON applications(user_id, updated_at)",
 )
 
 
@@ -161,6 +168,22 @@ def initialize_database() -> None:
     path = database_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with connection() as db:
+        for statement in SCHEMA[:2]:
+            db.execute(statement)
+        legacy_profile_fields = db.execute(
+            "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'profile_fields'"
+        ).fetchone()
+        if legacy_profile_fields and "path TEXT NOT NULL UNIQUE" in legacy_profile_fields["sql"]:
+            db.execute("ALTER TABLE profile_fields RENAME TO profile_fields_legacy")
+            db.execute(PROFILE_FIELDS_SCHEMA)
+            db.execute(
+                """
+                INSERT INTO profile_fields(id, profile_id, path, label, value_json, verified, source, updated_at)
+                SELECT id, profile_id, path, label, value_json, verified, source, updated_at
+                FROM profile_fields_legacy
+                """
+            )
+            db.execute("DROP TABLE profile_fields_legacy")
         for statement in SCHEMA:
             db.execute(statement)
         timestamp = now_iso()

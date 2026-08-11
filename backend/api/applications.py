@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from backend.api.helpers import row_to_experience, verified_profile_map
 from backend.database.db import connection, now_iso
@@ -16,6 +16,7 @@ from backend.models.schemas import (
 from backend.services.confidence import generated_confidence, profile_confidence
 from backend.services.essay_generator import draft_from_verified_experiences
 from backend.services.field_classifier import classify
+from backend.security.auth import AuthenticatedUser, current_user
 
 
 router = APIRouter(prefix="/api", tags=["applications"])
@@ -30,11 +31,11 @@ def render_profile_value(value: object) -> str:
 
 
 @router.post("/applications/analyze", response_model=AnalyzeResponse)
-def analyze_application(payload: AnalyzeRequest) -> AnalyzeResponse:
+def analyze_application(payload: AnalyzeRequest, user: AuthenticatedUser = Depends(current_user)) -> AnalyzeResponse:
     timestamp = now_iso()
     with connection() as db:
-        profile = verified_profile_map(db)
-        experiences = [row_to_experience(row) for row in db.execute("SELECT * FROM experiences WHERE verified = 1").fetchall()]
+        profile = verified_profile_map(db, user.profile_id)
+        experiences = [row_to_experience(row) for row in db.execute("SELECT * FROM experiences WHERE user_id = ? AND verified = 1", (user.id,)).fetchall()]
         scholarship = db.execute("SELECT id FROM scholarships WHERE url = ?", (payload.url,)).fetchone()
         if scholarship:
             scholarship_id = scholarship["id"]
@@ -47,9 +48,9 @@ def analyze_application(payload: AnalyzeRequest) -> AnalyzeResponse:
         application_id = db.execute(
             """
             INSERT INTO applications(user_id, scholarship_id, status, fields_total, updated_at)
-            VALUES(1, ?, 'started', ?, ?)
+            VALUES(?, ?, 'started', ?, ?)
             """,
-            (scholarship_id, len(payload.fields), timestamp),
+            (user.id, scholarship_id, len(payload.fields), timestamp),
         ).lastrowid
 
         classified_fields: list[ClassifiedField] = []
@@ -159,11 +160,16 @@ def analyze_application(payload: AnalyzeRequest) -> AnalyzeResponse:
 
 
 @router.patch("/applications/{application_id}/fields/{field_id}/approval")
-def update_approval(application_id: int, field_id: str, payload: ApprovalUpdate) -> dict:
+def update_approval(application_id: int, field_id: str, payload: ApprovalUpdate, user: AuthenticatedUser = Depends(current_user)) -> dict:
     with connection() as db:
         row = db.execute(
-            "SELECT id, action FROM application_fields WHERE application_id = ? AND field_id = ?",
-            (application_id, field_id),
+            """
+            SELECT application_fields.id, application_fields.action
+            FROM application_fields
+            JOIN applications ON applications.id = application_fields.application_id
+            WHERE application_fields.application_id = ? AND application_fields.field_id = ? AND applications.user_id = ?
+            """,
+            (application_id, field_id, user.id),
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Application field not found")
@@ -196,30 +202,32 @@ def update_approval(application_id: int, field_id: str, payload: ApprovalUpdate)
 
 
 @router.get("/applications")
-def list_applications() -> list[dict]:
+def list_applications(user: AuthenticatedUser = Depends(current_user)) -> list[dict]:
     with connection() as db:
         rows = db.execute(
             """
             SELECT applications.*, scholarships.name, scholarships.url, scholarships.deadline
             FROM applications
             JOIN scholarships ON scholarships.id = applications.scholarship_id
+            WHERE applications.user_id = ?
             ORDER BY applications.updated_at DESC
-            """
+            """,
+            (user.id,),
         ).fetchall()
     return [dict(row) for row in rows]
 
 
 @router.get("/applications/{application_id}", response_model=AnalyzeResponse)
-def get_application(application_id: int) -> AnalyzeResponse:
+def get_application(application_id: int, user: AuthenticatedUser = Depends(current_user)) -> AnalyzeResponse:
     with connection() as db:
         application = db.execute(
             """
             SELECT applications.*, scholarships.name
             FROM applications
             JOIN scholarships ON scholarships.id = applications.scholarship_id
-            WHERE applications.id = ? AND applications.user_id = 1
+            WHERE applications.id = ? AND applications.user_id = ?
             """,
-            (application_id,),
+            (application_id, user.id),
         ).fetchone()
         if not application:
             raise HTTPException(status_code=404, detail="Application not found")

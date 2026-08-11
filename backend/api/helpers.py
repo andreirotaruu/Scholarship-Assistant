@@ -18,8 +18,8 @@ def row_to_experience(row: sqlite3.Row) -> dict:
     }
 
 
-def verified_profile_map(db: sqlite3.Connection) -> dict[str, dict]:
-    rows = db.execute("SELECT * FROM profile_fields").fetchall()
+def verified_profile_map(db: sqlite3.Connection, profile_id: int) -> dict[str, dict]:
+    rows = db.execute("SELECT * FROM profile_fields WHERE profile_id = ?", (profile_id,)).fetchall()
     return {
         row["path"]: {
             "value": json.loads(row["value_json"]),

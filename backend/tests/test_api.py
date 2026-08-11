@@ -3,12 +3,17 @@ from fastapi.testclient import TestClient
 from backend.main import app
 
 
+AUTH_HEADERS = {"Authorization": "Bearer dev-scholar-token"}
+
+
 def test_analyze_application_end_to_end(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("SCHOLARSAFE_DATABASE", str(tmp_path / "test.db"))
     with TestClient(app) as client:
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["submission_enabled"] is False
+        assert client.get("/api/profile").status_code == 401
+        client.headers.update(AUTH_HEADERS)
 
         response = client.post(
             "/api/applications/analyze",
@@ -66,6 +71,7 @@ def test_analyze_application_end_to_end(tmp_path, monkeypatch) -> None:
 def test_experience_create_and_verify(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("SCHOLARSAFE_DATABASE", str(tmp_path / "experiences.db"))
     with TestClient(app) as client:
+        client.headers.update(AUTH_HEADERS)
         created = client.post(
             "/api/experiences",
             json={
@@ -89,3 +95,48 @@ def test_experience_create_and_verify(tmp_path, monkeypatch) -> None:
         verified = client.get("/api/experiences?verified_only=true")
         assert verified.status_code == 200
         assert any(item["title"] == "Peer tutoring" for item in verified.json())
+
+
+def test_users_cannot_read_or_mutate_each_others_records(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("SCHOLARSAFE_DATABASE", str(tmp_path / "ownership.db"))
+    monkeypatch.setenv(
+        "SCHOLARSAFE_API_TOKENS",
+        '{"alice-token":"alice@example.edu","bob-token":"bob@example.edu"}',
+    )
+    alice = {"Authorization": "Bearer alice-token"}
+    bob = {"Authorization": "Bearer bob-token"}
+    with TestClient(app) as client:
+        alice_profile = client.put(
+            "/api/profile",
+            headers=alice,
+            json={"fields": [{"path": "personal.first_name", "label": "First name", "value": "Alice", "verified": True}]},
+        )
+        assert alice_profile.status_code == 200
+        assert client.get("/api/profile", headers=bob).json()["fields"] == []
+
+        experience = client.post(
+            "/api/experiences",
+            headers=alice,
+            json={
+                "title": "Alice project",
+                "situation": "A verified Alice-only situation.",
+                "actions": ["Built it"],
+                "results": ["Completed it"],
+                "themes": ["ownership"],
+                "verified": True,
+            },
+        ).json()
+        assert client.get("/api/experiences", headers=bob).json() == []
+        assert client.put(f"/api/experiences/{experience['id']}", headers=bob, json=experience).status_code == 404
+
+        analyzed = client.post(
+            "/api/applications/analyze",
+            headers=alice,
+            json={
+                "scholarship_name": "Private Scholarship",
+                "url": "https://example.org/private-apply",
+                "fields": [{"field_id": "first_name", "label": "First name", "type": "text"}],
+            },
+        ).json()
+        assert client.get(f"/api/applications/{analyzed['application_id']}", headers=bob).status_code == 404
+        assert client.get("/api/applications", headers=bob).json() == []

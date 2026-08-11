@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const timestamps = {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -16,7 +16,7 @@ export const profiles = sqliteTable("profiles", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").notNull().references(() => users.id),
   ...timestamps,
-});
+}, (table) => [uniqueIndex("profiles_user_id_idx").on(table.userId)]);
 
 export const profileFields = sqliteTable("profile_fields", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -40,7 +40,7 @@ export const experiences = sqliteTable("experiences", {
   verified: integer("verified", { mode: "boolean" }).notNull().default(false),
   source: text("source").notNull(),
   ...timestamps,
-});
+}, (table) => [index("experiences_user_verified_idx").on(table.userId, table.verified)]);
 
 export const scholarships = sqliteTable("scholarships", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -59,7 +59,7 @@ export const applications = sqliteTable("applications", {
   fieldsTotal: integer("fields_total").notNull().default(0),
   missingFields: integer("missing_fields").notNull().default(0),
   ...timestamps,
-});
+}, (table) => [index("applications_user_updated_idx").on(table.userId, table.updatedAt)]);
 
 export const applicationFields = sqliteTable("application_fields", {
   id: integer("id").primaryKey({ autoIncrement: true }),

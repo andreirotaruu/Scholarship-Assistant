@@ -12,6 +12,9 @@ def test_analyze_application_end_to_end(tmp_path, monkeypatch) -> None:
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["submission_enabled"] is False
+        readiness = client.get("/ready")
+        assert readiness.status_code == 200
+        assert readiness.json()["database"] == "available"
         assert client.get("/api/profile").status_code == 401
         client.headers.update(AUTH_HEADERS)
 

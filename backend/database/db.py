@@ -18,9 +18,10 @@ def database_path() -> Path:
 
 @contextmanager
 def connection() -> Iterator[sqlite3.Connection]:
-    db = sqlite3.connect(database_path())
+    db = sqlite3.connect(database_path(), timeout=10)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys = ON")
+    db.execute("PRAGMA busy_timeout = 10000")
     try:
         yield db
         db.commit()
@@ -168,6 +169,7 @@ def initialize_database() -> None:
     path = database_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with connection() as db:
+        db.execute("PRAGMA journal_mode = WAL")
         for statement in SCHEMA[:2]:
             db.execute(statement)
         legacy_profile_fields = db.execute(
@@ -232,3 +234,15 @@ def initialize_database() -> None:
                     ),
                 ),
             )
+
+
+def database_is_ready() -> bool:
+    if not database_path().is_file():
+        return False
+    try:
+        with connection() as db:
+            return db.execute(
+                "SELECT COUNT(*) FROM sqlite_schema WHERE type = 'table' AND name = 'users'"
+            ).fetchone()[0] == 1
+    except (OSError, sqlite3.Error):
+        return False

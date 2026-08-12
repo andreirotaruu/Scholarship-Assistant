@@ -284,6 +284,32 @@ variable is for local development only. SQLite deployment requires one service
 instance and durable backups. A multi-instance deployment should first migrate
 the backend to a managed transactional database.
 
+The container exposes two unauthenticated service probes:
+
+- `GET /health` confirms that the API process is running and automatic
+  submission remains disabled.
+- `GET /ready` also confirms that the database can be reached. Configure the
+  hosting platform to use `/ready` for readiness and health checks.
+
+Create a consistent online SQLite backup without stopping the service:
+
+```bash
+python -m backend.ops.backup --output-directory /backups
+```
+
+Mount `/backups` separately from `/data`, copy backups to encrypted off-site
+storage, and test restoration on a schedule. A backup left only on the same
+persistent disk does not protect against loss of that disk.
+
+After deployment, verify the public probes and authenticated profile read
+without changing student data:
+
+```bash
+SCHOLARSAFE_API_BASE=https://api.example.edu \
+SCHOLARSAFE_API_TOKEN=replace-with-production-token \
+npm run smoke:production-api
+```
+
 ### 4. Start the dashboard
 
 In another terminal:

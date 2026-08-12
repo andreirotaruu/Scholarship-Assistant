@@ -1,13 +1,13 @@
 from contextlib import asynccontextmanager
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.applications import router as applications_router
 from backend.api.generation import router as generation_router
 from backend.api.profile import router as profile_router
-from backend.database.db import initialize_database
+from backend.database.db import database_is_ready, initialize_database
 from backend.security.auth import validate_auth_configuration
 
 
@@ -40,3 +40,10 @@ app.include_router(generation_router)
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "submission_enabled": False}
+
+
+@app.get("/ready")
+def readiness() -> dict:
+    if not database_is_ready():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable")
+    return {"status": "ready", "database": "available", "submission_enabled": False}

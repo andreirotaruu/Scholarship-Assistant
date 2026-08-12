@@ -1,6 +1,7 @@
 import sqlite3
 
-from backend.database.db import initialize_database
+from backend.database.db import database_is_ready, initialize_database
+from backend.ops.backup import create_backup
 
 
 def test_legacy_profile_fields_migrate_to_per_profile_uniqueness(tmp_path, monkeypatch) -> None:
@@ -47,3 +48,22 @@ def test_production_database_starts_without_demo_user(tmp_path, monkeypatch) -> 
     initialize_database()
     with sqlite3.connect(database) as db:
         assert db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
+
+
+def test_database_readiness_and_verified_backup(tmp_path, monkeypatch) -> None:
+    database = tmp_path / "source.db"
+    monkeypatch.setenv("SCHOLARSAFE_DATABASE", str(database))
+    initialize_database()
+
+    assert database_is_ready() is True
+    backup = create_backup(tmp_path / "backups")
+
+    assert backup.is_file()
+    with sqlite3.connect(backup) as db:
+        assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        assert db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1
+
+
+def test_database_readiness_reports_unavailable_path(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("SCHOLARSAFE_DATABASE", str(tmp_path / "missing" / "database.db"))
+    assert database_is_ready() is False

@@ -18,6 +18,8 @@ PROFILE_FIELD_MAP = {
     "phone number": "personal.phone",
     "street address": "personal.address.street",
     "address": "personal.address.street",
+    "address line 1": "personal.address.street",
+    "address line 2": "personal.address.line2",
     "city": "personal.address.city",
     "state": "personal.address.state",
     "state province": "personal.address.state",
@@ -35,6 +37,10 @@ PROFILE_FIELD_MAP = {
     "current year in school": "education.year_in_school",
     "graduation date": "education.graduation_date",
     "expected graduation": "education.graduation_date",
+    "college graduation date": "education.graduation_date",
+    "high school graduation date": "education.high_school_graduation_date",
+    "secondary school graduation date": "education.high_school_graduation_date",
+    "high school or upper secondary school graduation date": "education.high_school_graduation_date",
     "gpa": "education.gpa",
 }
 
@@ -62,7 +68,8 @@ class Classification:
 
 
 def normalize(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+    text = re.sub(r"\be[\s-]+mail\b", "email", text.lower())
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
 
 
 def classify(field: ExtractedField) -> Classification:
@@ -72,6 +79,8 @@ def classify(field: ExtractedField) -> Classification:
 
     if field_type in {"hidden", "submit", "button", "reset", "image"}:
         return Classification(FieldAction.IGNORE, None, False, "Non-answer control")
+    if field_type == "combobox":
+        return Classification(FieldAction.MANUAL_ONLY, None, False, "Custom dropdown requires manual selection on the application page")
     if field_type in {"file"} or any(term in label for term in MANUAL_TERMS):
         return Classification(FieldAction.MANUAL_ONLY, None, False, "Uploads, signatures, and verification controls require manual handling")
     if any(term in label for term in SENSITIVE_TERMS):
@@ -81,6 +90,9 @@ def classify(field: ExtractedField) -> Classification:
         return Classification(FieldAction.PROFILE_AUTOFILL, PROFILE_FIELD_MAP[primary_label], True, "Exact deterministic profile match")
 
     matches = [(key, path) for key, path in PROFILE_FIELD_MAP.items() if key in label]
+    if matches:
+        longest_match = max(len(key.split()) for key, _ in matches)
+        matches = [(key, path) for key, path in matches if len(key.split()) == longest_match]
     unique_paths = {path for _, path in matches}
     if len(unique_paths) == 1:
         return Classification(FieldAction.PROFILE_AUTOFILL, next(iter(unique_paths)), False, "Deterministic profile keyword match")

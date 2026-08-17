@@ -63,11 +63,12 @@ function stateFor(field) {
 
 function render() {
   byId("application-title").textContent = application.scholarship_name;
-  const approved = application.fields.filter((field) => field.approved).length;
-  const review = application.fields.filter((field) => stateFor(field) === "review").length;
-  const missing = application.fields.filter((field) => ["missing", "manual"].includes(stateFor(field))).length;
+  const visibleFields = application.fields.filter((field) => field.action !== "ignore");
+  const approved = visibleFields.filter((field) => field.approved).length;
+  const review = visibleFields.filter((field) => stateFor(field) === "review").length;
+  const missing = visibleFields.filter((field) => ["missing", "manual"].includes(stateFor(field))).length;
   byId("summary").textContent = `${approved} approved · ${review} to review · ${missing} missing or manual`;
-  byId("progress-bar").style.width = `${application.fields.length ? approved / application.fields.length * 100 : 0}%`;
+  byId("progress-bar").style.width = `${visibleFields.length ? approved / visibleFields.length * 100 : 0}%`;
   const list = byId("field-list");
   list.replaceChildren();
 

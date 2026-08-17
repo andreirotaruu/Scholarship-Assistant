@@ -35,6 +35,19 @@ async function createRealPatternFixture() {
   return window;
 }
 
+async function createReactPatternFixture() {
+  const [html, extractor] = await Promise.all([
+    readFile(new URL("tests/fixtures/react-application-pattern.html", projectRoot), "utf8"),
+    readFile(new URL("extension/field_extractor.js", projectRoot), "utf8"),
+  ]);
+  const window = new Window({ url: "https://application.example/student" });
+  window.document.write(html);
+  window.CSS ??= {};
+  window.CSS.escape ??= (value) => String(value).replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character}`);
+  window.eval(extractor);
+  return window;
+}
+
 test("extracts the representative scholarship form without duplicate radio groups", async () => {
   const window = await createFixture();
   const fields = window.ScholarSafe.extractFields();
@@ -124,6 +137,22 @@ test("scopes extraction to the real scholarship form pattern", async () => {
   assert.equal(byName.get("email").selector, "#scholarship-form #email");
   assert.match(byName.get("essay").label.toLowerCase(), /essay/);
   assert.equal(byName.get("essay").type, "file");
+});
+
+test("uses human labels for React controls and opaque application field IDs", async () => {
+  const window = await createReactPatternFixture();
+  const fields = window.ScholarSafe.extractFields();
+  const byId = new Map(fields.map((field) => [field.field_id, field]));
+
+  assert.equal(byId.get("1CVP8h93SiERDeSoz4eH6x").label, "Email address");
+  assert.equal(byId.get("react-select-5-input").label, "State or Province *");
+  assert.equal(byId.get("react-select-5-input").type, "combobox");
+  assert.equal(byId.get("1CVP8esG6XF2CfF3DQUZVe.line1").label, "Street address");
+  assert.equal(byId.get("1CVP8esG6XF2CfF3DQUZVe.line2").label, "Address line 2");
+  assert.equal(byId.get("1CVP8esG6XF2CfF3DQUZVe.city").label, "City");
+  assert.equal(byId.get("1CVP8esG6XF2CfF3DQUZVe.postal").label, "Postal code");
+  assert.equal(byId.has("1CVP8totallyOpaqueValue"), false);
+  assert.equal(fields.some((field) => /backspace|react-select-\d+-input/i.test(field.label)), false);
 });
 
 test("does not extract controls hidden by an eligibility gate", async () => {

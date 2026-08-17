@@ -48,3 +48,21 @@ def test_real_form_profile_labels_map_deterministically() -> None:
         result = classify(ExtractedField(field_id=label, label=label))
         assert result.action == FieldAction.PROFILE_AUTOFILL
         assert result.profile_path == expected_path
+
+
+def test_hyphenated_email_and_compound_graduation_labels_are_not_ambiguous() -> None:
+    mappings = {
+        "Personal E-mail Address": "personal.email",
+        "High school or upper secondary school graduation Date *": "education.high_school_graduation_date",
+        "College Graduation Date *": "education.graduation_date",
+    }
+    for label, expected_path in mappings.items():
+        result = classify(field(label))
+        assert result.action == FieldAction.PROFILE_AUTOFILL
+        assert result.profile_path == expected_path
+
+
+def test_custom_combobox_requires_manual_selection() -> None:
+    result = classify(field("State or province", "combobox"))
+    assert result.action == FieldAction.MANUAL_ONLY
+    assert "manual selection" in result.reason

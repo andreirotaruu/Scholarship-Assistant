@@ -153,6 +153,7 @@ PROFILE_SEED = (
     ("personal.email", "Email", "example@email.com", 1, "Student-entered"),
     ("personal.phone", "Phone", "", 0, "No source"),
     ("personal.address.street", "Street address", "", 0, "No source"),
+    ("personal.address.line2", "Address line 2", "", 0, "No source"),
     ("personal.address.city", "City", "", 0, "No source"),
     ("personal.address.state", "State or province", "", 0, "No source"),
     ("personal.address.postal_code", "Postal code", "", 0, "No source"),
@@ -161,6 +162,7 @@ PROFILE_SEED = (
     ("education.majors", "Majors", ["Computer Science", "Mathematics"], 1, "Student-entered"),
     ("education.year_in_school", "Year in school", "", 0, "No source"),
     ("education.graduation_date", "Graduation date", "May 2028", 1, "Enrollment record"),
+    ("education.high_school_graduation_date", "High school graduation date", "", 0, "No source"),
     ("education.gpa", "GPA", None, 0, "No source"),
 )
 
